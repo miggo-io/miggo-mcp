@@ -2,8 +2,6 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
-  pull_request:
 
 jobs:
   test:
@@ -14,10 +12,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Sync dependencies
-        run: uv sync --extra dev
+        run: uv sync --all-extras
       - name: Ruff format
-        run: uv run --extra dev ruff format --check .
+        run: uv run ruff format --check .
       - name: Ruff check
-        run: uv run --extra dev ruff check .
+        run: uv run ruff check .
       - name: Pytest
-        run: uv run --extra dev pytest
+        run: uv run pytest

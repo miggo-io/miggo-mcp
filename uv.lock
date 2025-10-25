@@ -243,7 +243,7 @@ wheels = [
 [[package]]
 name = "miggo-public-server"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "httpx" },
     { name = "mcp", extra = ["cli"] },
@@ -251,37 +251,34 @@ dependencies = [
     { name = "pydantic-settings" },
 ]
 
-[package.optional-dependencies]
-dev = [
-    { name = "pre-commit" },
-    { name = "ruff" },
-]
-
 [package.dev-dependencies]
 dev = [
+    { name = "pre-commit" },
+    { name = "pyfuze" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-httpx" },
     { name = "respx" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.25.0" },
     { name = "mcp", extras = ["cli"], specifier = ">=0.1.0" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.6,<4.0" },
     { name = "pydantic", specifier = ">=2.5.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.0,<0.12" },
 ]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "pre-commit", specifier = ">=3.6,<4.0" },
+    { name = "pyfuze", specifier = "==2.7.2" },
     { name = "pytest", specifier = ">=7.4.0" },
     { name = "pytest-asyncio", specifier = ">=0.21.1" },
     { name = "pytest-httpx", specifier = ">=0.23.0" },
     { name = "respx", specifier = ">=0.21.1" },
+    { name = "ruff", specifier = ">=0.6.0,<0.12" },
 ]
 
 [[package]]
@@ -456,6 +453,17 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/20/c5/dbbc27b814c71676593d1c3f718e6cd7d4f00652cefa24b75f7aa3efb25e/pydantic_settings-2.11.0.tar.gz", hash = "sha256:d0e87a1c7d33593beb7194adb8470fc426e95ba02af83a0f23474a04c9a08180", size = 188394, upload-time = "2025-09-24T14:19:11.764Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/83/d6/887a1ff844e64aa823fb4905978d882a633cfe295c32eacad582b78a7d8b/pydantic_settings-2.11.0-py3-none-any.whl", hash = "sha256:fe2cea3413b9530d10f3a5875adffb17ada5c1e1bab0b2885546d7310415207c", size = 48608, upload-time = "2025-09-24T14:19:10.015Z" },
+]
+
+[[package]]
+name = "pyfuze"
+version = "2.7.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b5/f3/11587917cebb4cde78967f2c4661f67e8a49dc846582825af84831a28ed7/pyfuze-2.7.2-py3-none-any.whl", hash = "sha256:6a57f764d7933de969ee7e49d8b5366a7a32caa396812fc2fd509463e857d4ac", size = 19566815, upload-time = "2025-09-18T23:07:48.446Z" },
 ]
 
 [[package]]

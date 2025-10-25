@@ -36,7 +36,14 @@ def _ensure_uv_bootstrap(argv: Sequence[str]) -> None:
     project_dir = script_path.parent
     env = os.environ.copy()
     env[_BOOTSTRAP_SENTINEL] = "1"
-    cmd = [uv_executable, "run", "--project", str(project_dir), str(script_path), *argv[1:]]
+    cmd = [
+        uv_executable,
+        "run",
+        "--project",
+        str(project_dir),
+        str(script_path),
+        *argv[1:],
+    ]
     os.execve(uv_executable, cmd, env)  # noqa: S606 - intentional re-exec under uv
 
 
@@ -48,10 +55,11 @@ SRC_DIR = PROJECT_ROOT / "src"
 if SRC_DIR.is_dir():
     sys.path.insert(0, str(SRC_DIR))
 
-from pydantic import ValidationError
 
-from miggo_public_server.config import PublicServerSettings
-from miggo_public_server.main import build_server
+# We import at the bottom since now we're absolutely sure we've been
+# bootstrapped
+from miggo_public_server.config import PublicServerSettings  # noqa: E402
+from miggo_public_server.main import build_server  # noqa: E402
 
 _settings = PublicServerSettings()
 server = build_server(_settings)

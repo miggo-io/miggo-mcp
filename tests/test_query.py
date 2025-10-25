@@ -19,7 +19,9 @@ def test_serialize_sort_round_trip():
 
 
 def test_serialize_sort_rejects_invalid_pair():
-    with pytest.raises(ValueError, match="Sort tuples must contain exactly two elements"):
+    with pytest.raises(
+        ValueError, match="Sort tuples must contain exactly two elements"
+    ):
         serialize_sort([["name"]])
 
 
