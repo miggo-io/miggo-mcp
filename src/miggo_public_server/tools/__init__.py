@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import Annotated, Mapping, MutableMapping, Sequence
 
 from mcp.server.fastmcp import FastMCP
@@ -14,7 +15,9 @@ from ..query import compose_params
 from ..response import collection_response, scalar_response
 
 
-def register_services_tools(server: FastMCP, settings: PublicServerSettings) -> None:
+def register_services_tools(
+    server: FastMCP, settings: PublicServerSettings
+) -> dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]]:
     """Register the static set of tools exposed by this package."""
 
     @server.tool()
@@ -169,6 +172,13 @@ def register_services_tools(server: FastMCP, settings: PublicServerSettings) -> 
         async with MiggoPublicClient(settings) as client:
             payload = await client.get("/v1/services/facets", params=params)
         return collection_response(payload)
+
+    return {
+        "services_list": services_list,
+        "services_get": services_get,
+        "services_count": services_count,
+        "services_facets": services_facets,
+    }
 
 
 def _build_filters(
