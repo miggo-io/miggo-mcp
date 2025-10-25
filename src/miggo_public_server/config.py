@@ -5,12 +5,14 @@ from __future__ import annotations
 from pydantic import Field, HttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .constants import MAX_PAGE_SIZE, SERVICES_FIELDS
+from .constants import ALL_SORT_FIELDS, MAX_PAGE_SIZE
 
 DEFAULT_API_URL = "https://api-beta.miggo.io"
 DEFAULT_PAGE_SIZE = 10
 DEFAULT_PAGE_OFFSET = 0
 DEFAULT_SORT = "risk,desc"
+DEFAULT_ACCESS_KEY_EXCHANGE_URL = "https://auth.miggo.io/v1/auth/accesskey/exchange"
+DEFAULT_ACCESS_KEY_ID = "P2UjsJwOFdIeUAtW0pGTJ5SeJAlq"
 
 
 class PublicServerSettings(BaseSettings):
@@ -26,6 +28,8 @@ class PublicServerSettings(BaseSettings):
 
     token: str
     api_url: HttpUrl = Field(default=DEFAULT_API_URL)
+    access_key_exchange_url: HttpUrl = Field(default=DEFAULT_ACCESS_KEY_EXCHANGE_URL)
+    access_key_id: str = Field(default=DEFAULT_ACCESS_KEY_ID)
     default_take: int = Field(
         default=DEFAULT_PAGE_SIZE,
         ge=0,
@@ -58,7 +62,7 @@ class PublicServerSettings(BaseSettings):
         for idx in range(0, len(parts), 2):
             field = parts[idx]
             direction = parts[idx + 1].lower()
-            if field not in SERVICES_FIELDS:
+            if field not in ALL_SORT_FIELDS:
                 raise ValueError(f"Unsupported sort field: {field}")
             if direction not in {"asc", "desc"}:
                 raise ValueError(f"Unsupported sort direction: {direction}")
@@ -69,6 +73,8 @@ class PublicServerSettings(BaseSettings):
 
 __all__ = [
     "DEFAULT_API_URL",
+    "DEFAULT_ACCESS_KEY_EXCHANGE_URL",
+    "DEFAULT_ACCESS_KEY_ID",
     "DEFAULT_PAGE_OFFSET",
     "DEFAULT_PAGE_SIZE",
     "DEFAULT_SORT",

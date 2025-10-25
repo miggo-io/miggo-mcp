@@ -1,7 +1,9 @@
 # Miggo Public FastMCP Server
 
 This package ships a self-contained MCP stdio server that talks to Miggo's
-[public API](https://api-beta.miggo.io).
+[public API](https://api-beta.miggo.io), exposing services, endpoints,
+third-parties, findings, vulnerabilities, and project metadata as static MCP
+tools.
 
 ## Installation
 
@@ -44,7 +46,7 @@ uv run python -m miggo_public_server.main
 You can also run with the MCP inspector:
 
 ```bash
-uv run 
+uv run mcp dev miggo_public_server/run.py  # run from the repository root
 ```
 
 ### Manual Smoke Test
@@ -74,6 +76,15 @@ asyncio.run(main())
 PY
 ```
 
+### Available Tools
+
+- `services_list`, `services_get`, `services_count`, `services_facets`
+- `endpoints_list`, `endpoints_get`, `endpoints_count`, `endpoints_facets`
+- `third_parties_list`, `third_parties_get`, `third_parties_count`, `third_parties_facets`
+- `findings_list`, `findings_get`, `findings_count`, `findings_facets`
+- `vulnerabilities_list`, `vulnerabilities_get`, `vulnerabilities_count`, `vulnerabilities_facets`
+- `project_get`
+
 ### Tests
 
 Run the async unit suite with:
@@ -90,6 +101,5 @@ uv run pytest
 
 ## Future Work
 
-1. Add MCP tools for the public vulnerabilities endpoints once they are exposed.
-2. Centralise response-model typing with Pydantic models for richer editor hints.
-3. Explore streaming support for large result sets if the API introduces it.
+1. Centralise response-model typing with Pydantic models for richer editor hints.
+2. Explore streaming support for large result sets if the API introduces it.
