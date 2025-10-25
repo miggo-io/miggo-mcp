@@ -112,7 +112,7 @@ async def test_services_facets(settings):
 @pytest.mark.asyncio
 async def test_services_list_validation(settings):
     tools, _ = make_toolset(settings, {})
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError):
         await tools["services_list"](take=999)
 
 
@@ -211,3 +211,27 @@ async def test_project_get(settings):
 
     assert result["data"]["projectId"] == "proj-1"
     assert dummy.calls[0][0] == "/v1/project/"
+
+
+@pytest.mark.asyncio
+async def test_services_list_number_parameters(settings):
+    """Test that number parameters (floats that are integers) work correctly."""
+    responses = {
+        "/v1/services/": {
+            "status": 200,
+            "data": [{"id": "svc-1"}],
+            "meta": {"query": {"sort": [["risk", "desc"]]}},
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    # Test with float parameters (simulating MCP protocol sending JSON numbers)
+    result = await tools["services_list"](take=3.0, skip=1.0)
+
+    assert result["data"] == [{"id": "svc-1"}]
+    path, params = dummy.calls[0]
+    assert path == "/v1/services/"
+    assert params["take"] == "3"  # Should be converted to string for HTTP
+    assert params["skip"] == "1"
+
+

@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable
 from typing import Annotated, Mapping, MutableMapping, Sequence, TypeVar
 
 from mcp.server.fastmcp import FastMCP
-from pydantic import Field, validate_call
+from pydantic import BeforeValidator, Field, validate_call
 
 from ..client import MiggoPublicClient
 from ..config import PublicServerSettings
@@ -34,6 +34,39 @@ from ..response import collection_response, scalar_response
 
 ToolCallable = Callable[..., Awaitable[MutableMapping[str, object]]]
 _ToolCallableT = TypeVar("_ToolCallableT", bound=ToolCallable)
+
+
+def _parse_skip(value: int | float | None) -> int | None:
+    """Parse and validate skip parameter, converting from float if needed."""
+    if value is None:
+        return None
+    # Pydantic may coerce int to float; convert back
+    int_value = int(value)
+    if value != int_value:
+        raise ValueError(f"skip must be an integer, got {value}")
+    if int_value < 0:
+        raise ValueError(f"skip must be non-negative, got {int_value}")
+    return int_value
+
+
+def _parse_take(value: int | float | None) -> int | None:
+    """Parse and validate take parameter, converting from float if needed."""
+    if value is None:
+        return None
+    # Pydantic may coerce int to float; convert back
+    int_value = int(value)
+    if value != int_value:
+        raise ValueError(f"take must be an integer, got {value}")
+    if int_value < 0:
+        raise ValueError(f"take must be non-negative, got {int_value}")
+    if int_value > MAX_PAGE_SIZE:
+        raise ValueError(f"take must be <= {MAX_PAGE_SIZE}, got {int_value}")
+    return int_value
+
+
+# Type aliases for paging parameters with validation
+Skip = Annotated[int | None, BeforeValidator(_parse_skip)]
+Take = Annotated[int | None, BeforeValidator(_parse_take)]
 
 
 def register_all_tools(
@@ -69,11 +102,11 @@ def register_services_tools(
         is_authenticated: bool | None = None,
         technologies: Sequence[str] | None = None,
         risks: Sequence[str] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        last_accessed: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
+        last_accessed: Sequence[int] | None = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[ServiceField, SortDirection]] | None = None,
     ) -> MutableMapping[str, object]:
         """List Miggo services with optional filtering, sorting, and pagination."""
@@ -136,9 +169,9 @@ def register_services_tools(
         is_authenticated: bool | None = None,
         technologies: Sequence[str] | None = None,
         risks: Sequence[str] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        last_accessed: Sequence[Annotated[int, Field(ge=0)]] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
+        last_accessed: Sequence[int] | None = None,
     ) -> MutableMapping[str, object]:
         """Return a count of services matching the provided filters."""
         filters = _build_where_filters(
@@ -172,11 +205,11 @@ def register_services_tools(
         is_authenticated: bool | None = None,
         technologies: Sequence[str] | None = None,
         risks: Sequence[str] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        last_accessed: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
+        last_accessed: Sequence[int] | None = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[ServiceField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> MutableMapping[str, object]:
@@ -234,13 +267,13 @@ def register_endpoints_tools(
         is_internet_facing: bool | None = None,
         is_authenticated: bool | None = None,
         is_third_party_communication: bool | None = None,
-        risk_scores: Sequence[Annotated[float, Field(ge=0)]] | None = None,
-        first_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        last_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        risk_scores: Sequence[float] | None = None,
+        first_seen: Sequence[int] | None = None,
+        last_seen: Sequence[int] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[EndpointField, SortDirection]] | None = None,
     ) -> MutableMapping[str, object]:
         """List Miggo endpoints with optional filtering and pagination."""
@@ -306,11 +339,11 @@ def register_endpoints_tools(
         is_internet_facing: bool | None = None,
         is_authenticated: bool | None = None,
         is_third_party_communication: bool | None = None,
-        risk_scores: Sequence[Annotated[float, Field(ge=0)]] | None = None,
-        first_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        last_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
+        risk_scores: Sequence[float] | None = None,
+        first_seen: Sequence[int] | None = None,
+        last_seen: Sequence[int] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
     ) -> MutableMapping[str, object]:
         """Count endpoints matching the provided filters."""
         filters = _build_where_filters(
@@ -346,13 +379,13 @@ def register_endpoints_tools(
         is_internet_facing: bool | None = None,
         is_authenticated: bool | None = None,
         is_third_party_communication: bool | None = None,
-        risk_scores: Sequence[Annotated[float, Field(ge=0)]] | None = None,
-        first_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        last_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        risk_scores: Sequence[float] | None = None,
+        first_seen: Sequence[int] | None = None,
+        last_seen: Sequence[int] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[EndpointField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> MutableMapping[str, object]:
@@ -408,12 +441,12 @@ def register_third_parties_tools(
         ids: Sequence[str] | None = None,
         domains: Sequence[str] | None = None,
         service_names: Sequence[str] | None = None,
-        first_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        last_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        first_seen: Sequence[int] | None = None,
+        last_seen: Sequence[int] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[ThirdPartyField, SortDirection]] | None = None,
     ) -> MutableMapping[str, object]:
         """List third-party integrations."""
@@ -468,10 +501,10 @@ def register_third_parties_tools(
         ids: Sequence[str] | None = None,
         domains: Sequence[str] | None = None,
         service_names: Sequence[str] | None = None,
-        first_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        last_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
+        first_seen: Sequence[int] | None = None,
+        last_seen: Sequence[int] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
     ) -> MutableMapping[str, object]:
         """Count third-party integrations matching the provided filters."""
         filters = _build_where_filters(
@@ -496,12 +529,12 @@ def register_third_parties_tools(
         ids: Sequence[str] | None = None,
         domains: Sequence[str] | None = None,
         service_names: Sequence[str] | None = None,
-        first_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        last_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        first_seen: Sequence[int] | None = None,
+        last_seen: Sequence[int] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[ThirdPartyField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> MutableMapping[str, object]:
@@ -553,10 +586,10 @@ def register_findings_tools(
         statuses: Sequence[FindingStatus] | None = None,
         descriptions: Sequence[str] | None = None,
         rule_ids: Sequence[str] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[FindingField, SortDirection]] | None = None,
     ) -> MutableMapping[str, object]:
         """List security findings."""
@@ -615,8 +648,8 @@ def register_findings_tools(
         statuses: Sequence[FindingStatus] | None = None,
         descriptions: Sequence[str] | None = None,
         rule_ids: Sequence[str] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
     ) -> MutableMapping[str, object]:
         """Count findings matching the provided filters."""
         filters = _build_where_filters(
@@ -645,10 +678,10 @@ def register_findings_tools(
         statuses: Sequence[FindingStatus] | None = None,
         descriptions: Sequence[str] | None = None,
         rule_ids: Sequence[str] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[FindingField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> MutableMapping[str, object]:
@@ -704,16 +737,16 @@ def register_vulnerabilities_tools(
         statuses: Sequence[VulnerabilityStatus] | None = None,
         service_names: Sequence[str] | None = None,
         service_sensitivity_tags: Sequence[str] | None = None,
-        last_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
+        last_seen: Sequence[int] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
         is_internet_facing: bool | None = None,
         fixed_versions: Sequence[str] | None = None,
         vulnerability_ids: Sequence[str] | None = None,
         packages: Sequence[str] | None = None,
         has_public_fix: bool | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[VulnerabilityField, SortDirection]] | None = None,
     ) -> MutableMapping[str, object]:
         """List known vulnerabilities."""
@@ -783,9 +816,9 @@ def register_vulnerabilities_tools(
         statuses: Sequence[VulnerabilityStatus] | None = None,
         service_names: Sequence[str] | None = None,
         service_sensitivity_tags: Sequence[str] | None = None,
-        last_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
+        last_seen: Sequence[int] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
         is_internet_facing: bool | None = None,
         fixed_versions: Sequence[str] | None = None,
         vulnerability_ids: Sequence[str] | None = None,
@@ -831,16 +864,16 @@ def register_vulnerabilities_tools(
         statuses: Sequence[VulnerabilityStatus] | None = None,
         service_names: Sequence[str] | None = None,
         service_sensitivity_tags: Sequence[str] | None = None,
-        last_seen: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        created_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
-        updated_at: Sequence[Annotated[int, Field(ge=0)]] | None = None,
+        last_seen: Sequence[int] | None = None,
+        created_at: Sequence[int] | None = None,
+        updated_at: Sequence[int] | None = None,
         is_internet_facing: bool | None = None,
         fixed_versions: Sequence[str] | None = None,
         vulnerability_ids: Sequence[str] | None = None,
         packages: Sequence[str] | None = None,
         has_public_fix: bool | None = None,
-        skip: Annotated[int | None, Field(ge=0)] = None,
-        take: Annotated[int | None, Field(ge=0, le=MAX_PAGE_SIZE)] = None,
+        skip: Skip = None,
+        take: Take = None,
         sort: Sequence[tuple[VulnerabilityField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> MutableMapping[str, object]:
@@ -942,6 +975,8 @@ def _resolve_paging(
     return _Paging(resolved_skip, resolved_take)
 
 
+
+
 def _resolve_sort(
     sort: Sequence[tuple[str, SortDirection]] | None,
     default_pairs: Sequence[tuple[str, str]] | None,
@@ -961,8 +996,10 @@ def _parse_default_sort(value: str | None) -> list[tuple[str, str]]:
 
 
 def _register_tool(server: FastMCP, func: _ToolCallableT) -> _ToolCallableT:
-    """Apply pydantic validation while keeping annotations introspectable."""
-    validated = validate_call(func)
+    """Apply pydantic validation with mode='json' for MCP compatibility."""
+    from pydantic import ConfigDict
+    
+    validated = validate_call(func, config=ConfigDict(strict=False))
     _ensure_callable_globals(validated)
     registered = server.tool()(validated)
     return registered
@@ -990,6 +1027,8 @@ def _ensure_callable_globals(func: ToolCallable) -> None:
         "VulnerabilityStatus",
         "SortDirection",
         "MAX_PAGE_SIZE",
+        "Skip",
+        "Take",
     ):
         if name in source_globals and name not in target_globals:
             target_globals[name] = source_globals[name]
