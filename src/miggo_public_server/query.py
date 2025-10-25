@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 FilterInput = Mapping[str, Iterable[object] | object] | None
 SortInput = Sequence[Sequence[str]] | None
@@ -84,7 +84,7 @@ def compose_params(
 
 def _normalize_iterable(values: Iterable[object] | object) -> list[object]:
     """Return a list of values from user input ensuring iterables are flattened."""
-    if isinstance(values, (str, bytes)):
+    if isinstance(values, str | bytes):
         return [values]
 
     if isinstance(values, Iterable):

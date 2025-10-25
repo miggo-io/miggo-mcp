@@ -3,7 +3,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from pydantic import ValidationError
 
 from miggo_public_server.config import PublicServerSettings
 from miggo_public_server.tools import register_all_tools
@@ -45,7 +44,7 @@ def make_toolset(settings, responses):
     return tools, dummy
 
 
-@pytest.fixture()
+@pytest.fixture
 def settings():
     return make_settings()
 
@@ -75,7 +74,7 @@ async def test_services_get_fails_when_missing(settings):
     responses = {"/v1/services/": {"status": 200, "data": []}}
     tools, _ = make_toolset(settings, responses)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="No service found"):
         await tools["services_get"]("unknown")
 
 
@@ -112,7 +111,7 @@ async def test_services_facets(settings):
 @pytest.mark.asyncio
 async def test_services_list_validation(settings):
     tools, _ = make_toolset(settings, {})
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="take must be <="):
         await tools["services_list"](take=999)
 
 
@@ -233,5 +232,3 @@ async def test_services_list_number_parameters(settings):
     assert path == "/v1/services/"
     assert params["take"] == "3"  # Should be converted to string for HTTP
     assert params["skip"] == "1"
-
-

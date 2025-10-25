@@ -57,6 +57,4 @@ def test_invalid_default_sort(data):
 
 def test_default_take_bounds():
     with pytest.raises(ValidationError):
-        PublicServerSettings.model_validate(
-            {"token": "abc", "default_take": "100"}
-        )
+        PublicServerSettings.model_validate({"token": "abc", "default_take": "100"})

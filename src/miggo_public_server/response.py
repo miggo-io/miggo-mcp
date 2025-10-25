@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, MutableMapping
+from collections.abc import Mapping
+from typing import Any
 
 
 def unwrap_envelope(payload: Mapping[str, Any]) -> tuple[Any, Mapping[str, Any]]:

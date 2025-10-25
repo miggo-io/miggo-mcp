@@ -8,7 +8,7 @@ import os
 import pathlib
 import shutil
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 _BOOTSTRAP_SENTINEL = "MIGGO_PUBLIC_SERVER_BOOTSTRAPPED"
 
@@ -37,7 +37,7 @@ def _ensure_uv_bootstrap(argv: Sequence[str]) -> None:
     env = os.environ.copy()
     env[_BOOTSTRAP_SENTINEL] = "1"
     cmd = [uv_executable, "run", "--project", str(project_dir), str(script_path), *argv[1:]]
-    os.execve(uv_executable, cmd, env)
+    os.execve(uv_executable, cmd, env)  # noqa: S606 - intentional re-exec under uv
 
 
 _ensure_uv_bootstrap(sys.argv)

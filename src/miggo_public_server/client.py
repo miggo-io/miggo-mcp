@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Mapping, MutableMapping
 from datetime import UTC, datetime, timedelta
-from typing import Any, Mapping, MutableMapping
+from typing import Any
 
 import httpx
 
@@ -50,7 +51,7 @@ class MiggoPublicClient:
         self._session_expires_at: datetime | None = None
         self._jwt_lock = asyncio.Lock()
 
-    async def __aenter__(self) -> "MiggoPublicClient":
+    async def __aenter__(self) -> MiggoPublicClient:
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
@@ -152,27 +153,33 @@ class MiggoPublicClient:
 
     async def _ensure_session_jwt(self, *, force_refresh: bool = False) -> str:
         if not force_refresh and self._is_session_valid():
-            assert self._session_jwt is not None
+            jwt = self._session_jwt
+            if jwt is None:
+                msg = "Session JWT unexpectedly missing after validation"
+                raise RuntimeError(msg)
             logger.debug(
                 "Using cached session jwt=%s (expires_at=%s)",
-                _mask_token(self._session_jwt),
+                _mask_token(jwt),
                 self._session_expires_at.isoformat()
                 if isinstance(self._session_expires_at, datetime)
                 else "unknown",
             )
-            return self._session_jwt
+            return jwt
 
         async with self._jwt_lock:
             if not force_refresh and self._is_session_valid():
-                assert self._session_jwt is not None
+                jwt = self._session_jwt
+                if jwt is None:
+                    msg = "Session JWT unexpectedly missing after validation and lock acquisition"
+                    raise RuntimeError(msg)
                 logger.debug(
                     "Using cached session jwt=%s (expires_at=%s) after lock",
-                    _mask_token(self._session_jwt),
+                    _mask_token(jwt),
                     self._session_expires_at.isoformat()
                     if isinstance(self._session_expires_at, datetime)
                     else "unknown",
                 )
-                return self._session_jwt
+                return jwt
 
             logger.info(
                 "Exchanging API key for session JWT (force_refresh=%s)",
@@ -193,9 +200,7 @@ class MiggoPublicClient:
 
     async def _exchange_for_session_jwt(self) -> tuple[str, datetime | None]:
         headers = {
-            "Authorization": (
-                f"Bearer {self._settings.access_key_id}:{self._settings.token}"
-            ),
+            "Authorization": f"Bearer {self._settings.access_key_id}:{self._settings.token}",
             "Accept": "application/json",
         }
         exchange_url = str(self._settings.access_key_exchange_url)
@@ -215,8 +220,7 @@ class MiggoPublicClient:
             body = _safe_json(exc.response)
             message = body.get("message") if isinstance(body, Mapping) else None
             raise MiggoApiError(
-                f"Authentication exchange failed with "
-                f"{exc.response.status_code}: {message or exc}"
+                f"Authentication exchange failed with {exc.response.status_code}: {message or exc}"
             ) from exc
         except httpx.HTTPError as exc:
             logger.error("Auth exchange request failed: %s", exc, exc_info=True)
@@ -239,7 +243,9 @@ class MiggoPublicClient:
                 remaining,
             )
         else:
-            logger.info("Obtained session jwt=%s (no explicit expiry)", _mask_token(session_jwt))
+            logger.info(
+                "Obtained session jwt=%s (no explicit expiry)", _mask_token(session_jwt)
+            )
         logger.debug(
             "Obtained session JWT (expires at %s)",
             expires_at.isoformat() if isinstance(expires_at, datetime) else "unknown",
@@ -263,15 +269,13 @@ def _parse_expires_at(payload: Mapping[str, Any]) -> datetime | None:
         value = payload.get(key)
         if isinstance(value, str):
             try:
-                parsed = datetime.fromisoformat(
-                    value.replace("Z", "+00:00")
-                )
+                parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
                 if parsed.tzinfo is None:
                     parsed = parsed.replace(tzinfo=UTC)
                 return parsed.astimezone(UTC)
             except ValueError:
                 continue
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             try:
                 return datetime.fromtimestamp(value, tz=UTC)
             except (OSError, ValueError):

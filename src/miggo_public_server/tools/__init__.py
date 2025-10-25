@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-from typing import Annotated, Mapping, MutableMapping, Sequence, TypeVar
+from collections.abc import Awaitable, Callable, Mapping, MutableMapping, Sequence
+from typing import Annotated, TypeVar
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import BeforeValidator, Field, validate_call
@@ -949,7 +949,7 @@ def _build_where_filters(**field_values: object) -> dict[str, list[object]]:
 def _normalize_sequence(value: object) -> list[object] | None:
     if value is None:
         return None
-    if isinstance(value, (str, bytes)):
+    if isinstance(value, str | bytes):
         return [value]
     if isinstance(value, Sequence):
         items = [item for item in value if item is not None]
@@ -975,8 +975,6 @@ def _resolve_paging(
     return _Paging(resolved_skip, resolved_take)
 
 
-
-
 def _resolve_sort(
     sort: Sequence[tuple[str, SortDirection]] | None,
     default_pairs: Sequence[tuple[str, str]] | None,
@@ -992,13 +990,13 @@ def _parse_default_sort(value: str | None) -> list[tuple[str, str]]:
     if not value:
         return []
     tokens = [token for token in value.split(",") if token]
-    return list(zip(tokens[::2], tokens[1::2]))
+    return list(zip(tokens[::2], tokens[1::2], strict=False))
 
 
 def _register_tool(server: FastMCP, func: _ToolCallableT) -> _ToolCallableT:
     """Apply pydantic validation with mode='json' for MCP compatibility."""
     from pydantic import ConfigDict
-    
+
     validated = validate_call(func, config=ConfigDict(strict=False))
     _ensure_callable_globals(validated)
     registered = server.tool()(validated)
