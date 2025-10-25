@@ -2,16 +2,29 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
+
 from mcp.server.fastmcp import FastMCP
 
+from .client import MiggoPublicClient
 from .config import ConfigurationError, PublicServerSettings
 from .tools import register_services_tools
 
 
 def build_server(settings: PublicServerSettings) -> FastMCP:
     """Construct and configure the FastMCP server instance."""
-    server = FastMCP("miggo-public-services")
-    register_services_tools(server, settings)
+    client = MiggoPublicClient(settings)
+
+    @asynccontextmanager
+    async def lifespan(_: FastMCP) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            await client.aclose()
+
+    server = FastMCP("miggo-public-services", lifespan=lifespan)
+    register_services_tools(server, settings, client)
     return server
 
 

@@ -16,7 +16,9 @@ from ..response import collection_response, scalar_response
 
 
 def register_services_tools(
-    server: FastMCP, settings: PublicServerSettings
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
 ) -> dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]]:
     """Register the static set of tools exposed by this package."""
 
@@ -60,8 +62,7 @@ def register_services_tools(
             sort=_resolve_sort(sort, settings),
         )
 
-        async with MiggoPublicClient(settings) as client:
-            payload = await client.get("/v1/services/", params=params)
+        payload = await client.get("/v1/services/", params=params)
         return collection_response(payload)
 
     @server.tool()
@@ -76,8 +77,7 @@ def register_services_tools(
             sort=_resolve_sort(None, settings),
         )
 
-        async with MiggoPublicClient(settings) as client:
-            payload = await client.get("/v1/services/", params=params)
+        payload = await client.get("/v1/services/", params=params)
 
         services = payload.get("data") or []
         if not services:
@@ -120,8 +120,7 @@ def register_services_tools(
 
         params = compose_params(filters=filters)
 
-        async with MiggoPublicClient(settings) as client:
-            payload = await client.get("/v1/services/count", params=params)
+        payload = await client.get("/v1/services/count", params=params)
 
         return scalar_response(payload)
 
@@ -169,8 +168,7 @@ def register_services_tools(
             search=search,
         )
 
-        async with MiggoPublicClient(settings) as client:
-            payload = await client.get("/v1/services/facets", params=params)
+        payload = await client.get("/v1/services/facets", params=params)
         return collection_response(payload)
 
     return {

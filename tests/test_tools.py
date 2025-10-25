@@ -23,11 +23,8 @@ class DummyClient:
         self.responses = responses
         self.calls: list[tuple[str, dict | None]] = []
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
+    async def aclose(self):
+        return None
 
     async def get(self, path, params=None):
         self.calls.append((path, params))
@@ -43,7 +40,7 @@ def settings():
 
 
 @pytest.mark.asyncio
-async def test_services_list_happy(monkeypatch, settings):
+async def test_services_list_happy(settings):
     responses = {
         "/v1/services/": {
             "status": 200,
@@ -52,13 +49,9 @@ async def test_services_list_happy(monkeypatch, settings):
         }
     }
     dummy = DummyClient(settings, responses=responses)
-    monkeypatch.setattr(
-        "miggo_public_server.tools.MiggoPublicClient",
-        lambda *_args, **_kwargs: dummy,
-    )
 
     server = SimpleNamespace(tool=lambda: (lambda func: func))
-    tools = register_services_tools(server, settings)
+    tools = register_services_tools(server, settings, dummy)
 
     result = await tools["services_list"](ids=["svc-1"], take=3)
 
@@ -69,32 +62,24 @@ async def test_services_list_happy(monkeypatch, settings):
 
 
 @pytest.mark.asyncio
-async def test_services_get_fails_when_missing(monkeypatch, settings):
+async def test_services_get_fails_when_missing(settings):
     responses = {"/v1/services/": {"status": 200, "data": []}}
     dummy = DummyClient(settings, responses=responses)
-    monkeypatch.setattr(
-        "miggo_public_server.tools.MiggoPublicClient",
-        lambda *_args, **_kwargs: dummy,
-    )
 
     server = SimpleNamespace(tool=lambda: (lambda func: func))
-    tools = register_services_tools(server, settings)
+    tools = register_services_tools(server, settings, dummy)
 
     with pytest.raises(ValueError):
         await tools["services_get"]("unknown")
 
 
 @pytest.mark.asyncio
-async def test_services_count(monkeypatch, settings):
+async def test_services_count(settings):
     responses = {"/v1/services/count": {"data": 7}}
     dummy = DummyClient(settings, responses=responses)
-    monkeypatch.setattr(
-        "miggo_public_server.tools.MiggoPublicClient",
-        lambda *_args, **_kwargs: dummy,
-    )
 
     server = SimpleNamespace(tool=lambda: (lambda func: func))
-    tools = register_services_tools(server, settings)
+    tools = register_services_tools(server, settings, dummy)
 
     result = await tools["services_count"](ids=["svc-1"])
 
@@ -104,7 +89,7 @@ async def test_services_count(monkeypatch, settings):
 
 
 @pytest.mark.asyncio
-async def test_services_facets(monkeypatch, settings):
+async def test_services_facets(settings):
     responses = {
         "/v1/services/facets": {
             "status": 200,
@@ -112,13 +97,9 @@ async def test_services_facets(monkeypatch, settings):
         }
     }
     dummy = DummyClient(settings, responses=responses)
-    monkeypatch.setattr(
-        "miggo_public_server.tools.MiggoPublicClient",
-        lambda *_args, **_kwargs: dummy,
-    )
 
     server = SimpleNamespace(tool=lambda: (lambda func: func))
-    tools = register_services_tools(server, settings)
+    tools = register_services_tools(server, settings, dummy)
 
     result = await tools["services_facets"](fields=["risk"], search="svc")
 
@@ -131,7 +112,8 @@ async def test_services_facets(monkeypatch, settings):
 @pytest.mark.asyncio
 async def test_services_list_validation(settings):
     server = SimpleNamespace(tool=lambda: (lambda func: func))
-    tools = register_services_tools(server, settings)
+    dummy = DummyClient(settings, responses={})
+    tools = register_services_tools(server, settings, dummy)
 
     with pytest.raises(ValidationError):
         await tools["services_list"](take=999)

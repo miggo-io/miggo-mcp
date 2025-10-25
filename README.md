@@ -1,8 +1,7 @@
 # Miggo Public FastMCP Server
 
 This package ships a self-contained MCP stdio server that talks to Miggo's
-[public API](https://api-beta.miggo.io). Tools are statically defined against the
-`/v1/services` endpoints and can be extended as the API evolves.
+[public API](https://api-beta.miggo.io).
 
 ## Installation
 
@@ -19,11 +18,11 @@ Export the following environment variables before launching the server:
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `MIGGO_PUBLIC_API_URL` | ✔️ | Base URL of the Miggo public API. Defaults to `https://api-beta.miggo.io`. |
-| `MIGGO_PUBLIC_TOKEN` | ✔️ | Bearer token issued by Miggo's authentication flow. |
-| `MIGGO_PUBLIC_DEFAULT_TAKE` | optional | Default page size for list endpoints (max 50). |
-| `MIGGO_PUBLIC_DEFAULT_SKIP` | optional | Default offset for list endpoints. |
-| `MIGGO_PUBLIC_DEFAULT_SORT` | optional | Default `field,direction` pairs (e.g. `risk,desc`). |
+| `MIGGO_PUBLIC_API_URL` | No | Base URL of the Miggo public API. Defaults to `https://api-beta.miggo.io`. |
+| `MIGGO_PUBLIC_TOKEN` | Yes | Bearer token issued by Miggo's authentication flow. |
+| `MIGGO_PUBLIC_DEFAULT_TAKE` | Optional | Default page size for list endpoints (max 50). |
+| `MIGGO_PUBLIC_DEFAULT_SKIP` | Optional | Default offset for list endpoints. |
+| `MIGGO_PUBLIC_DEFAULT_SORT` | Optional | Default `field,direction` pairs (e.g. `risk,desc`). |
 
 Settings are validated with `pydantic-settings`; misconfigured values raise a
 concise error before the server starts.
@@ -42,14 +41,11 @@ or directly:
 uv run python -m miggo_public_server.main
 ```
 
-The `FastMCP` runtime registers four tools:
+You can also run with the MCP inspector:
 
-* `services_list`
-* `services_get`
-* `services_count`
-* `services_facets`
-
-See `docs/services_scope.md` for argument details and schema notes.
+```bash
+uv run 
+```
 
 ### Manual Smoke Test
 
