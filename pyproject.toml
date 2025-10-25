@@ -11,6 +11,12 @@ dependencies = [
     "pydantic-settings>=2.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pre-commit>=3.6,<4.0",
+    "ruff>=0.6.0,<0.12",
+]
+
 [project.scripts]
 miggo-public-mcp = "miggo_public_server.main:main"
 
@@ -31,3 +37,40 @@ dev-dependencies = [
     "pytest-httpx>=0.23.0",
     "respx>=0.21.1",
 ]
+
+[tool.ruff.lint]
+select = [
+    "A",   # builtins shadowing
+    "ASYNC",
+    "C4",  # comprehensions
+    "B",   # bugbear
+    "DTZ", # datetime
+    "E",   # style errors
+    "F",   # flake8
+    "I",   # import sorting
+    "LOG", # logging calls
+    "N",   # naming
+    "PT",  # pytest
+    "S",   # bandit security
+    "UP",  # upgrade
+    "YTT", # sys.version misuses
+    "W",   # style warnings
+]
+
+# Too long lines are format territory
+ignore = [
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**.py" = [
+    # Test files can use `assert` all they want
+    "S101",
+    # Tests can also hardcode passwords
+    "S105",
+    "S106",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

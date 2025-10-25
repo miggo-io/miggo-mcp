@@ -93,6 +93,30 @@ Run the async unit suite with:
 uv run pytest
 ```
 
+## Code Quality
+
+Sync the development tooling before running local checks:
+
+```bash
+uv sync --extra dev
+```
+
+Format and lint the codebase with Ruff:
+
+```bash
+uv run --extra dev ruff format .
+uv run --extra dev ruff check .
+```
+
+Install and exercise the pre-commit hooks to keep the repo clean:
+
+```bash
+uv run --extra dev pre-commit install
+pre-commit run --all-files
+```
+
+Continuous integration runs in `.github/workflows/ci.yaml`, verifying `ruff format --check`, `ruff check`, and `pytest` on every push and pull request.
+
 ## Release Notes & Versioning
 
 * Follow [SemVer](https://semver.org/) for the package version in `pyproject.toml`.
