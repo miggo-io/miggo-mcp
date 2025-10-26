@@ -749,7 +749,15 @@ def register_vulnerabilities_tools(
         take: Take = None,
         sort: Sequence[tuple[VulnerabilityField, SortDirection]] | None = None,
     ) -> MutableMapping[str, object]:
-        """List known vulnerabilities."""
+        """List known vulnerabilities.
+
+        Of special note is the vulnerability *execution status*, a unique Miggo differentiator:
+        - `STATIC`: The vulnerability is statically present in the codebase.
+        - `LOADED`: The vulnerability is loaded into memory.
+        - `EXECUTED`: The vulnerability was executed.
+        - `FUNCTION EXECUTED`: The vulnerability was executed as a function.
+        Use it to understand the severity of the vulnerability.
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
@@ -1004,7 +1012,10 @@ def _register_tool(server: FastMCP, func: _ToolCallableT) -> _ToolCallableT:
 
 
 def _ensure_callable_globals(func: ToolCallable) -> None:
-    """Expose this module's typing symbols to decorated callables."""
+    """Expose this module's typing symbols to decorated callables.
+
+    This is quite horrible - but that's what I get for trying to make FastMCP
+    and Pydantic play nice with each other..."""
     source_globals = globals()
     target_globals = func.__globals__
     for name in (

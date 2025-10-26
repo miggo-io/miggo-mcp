@@ -1,9 +1,9 @@
 [project]
-name = "miggo-public-server"
+name = "miggo-public-mcp"
 version = "0.1.0"
 description = "MCP server for Miggo's public API"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "mcp[cli]>=0.1.0",
     "httpx>=0.25.0",
@@ -19,6 +19,7 @@ dev = [
     "respx>=0.21.1",
     "pre-commit>=3.6,<4.0",
     "ruff>=0.6.0,<0.12",
+    "click>=8.1.0",
     "pyfuze==2.7.2",
 ]
 
@@ -58,6 +59,7 @@ ignore = [
 "scripts/**.py" = [
     # Scripts can subprocess, yes-sir
     "S603",
+    "S607",
 ]
 
 [tool.ruff.format]

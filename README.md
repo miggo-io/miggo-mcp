@@ -1,18 +1,47 @@
-# Miggo Public FastMCP Server
+# Miggo Public API MCP Server
 
 This package ships a self-contained MCP stdio server that talks to Miggo's
-[public API](https://api-beta.miggo.io), exposing services, endpoints,
-third-parties, findings, vulnerabilities, and project metadata as static MCP
-tools.
+[public API](https://api-beta.miggo.io).
 
 ## Installation
 
-```bash
-uv pip install -e .
-```
+In all installation scenarios, you'll first need to create an API token [through the Integrations portal](https://app.miggo.io/integrations/accessKey).
 
-The project uses [uv](https://github.com/astral-sh/uv) for dependency
-management, but any PEP 517 build frontend (e.g. `pip install .`) will work.
+### Claude Desktop - MCPB
+
+This server is packaged as an MCP Bundle (MCPB) for easy one-click installation in compatible applications.
+
+1. Download the latest `.mcpb` bundle from the [releases page](https://github.com/miggo/miggo-public-mcp/releases)
+2. Open to install in Claude Desktop
+3. Configure your `MIGGO_PUBLIC_TOKEN` in the application's MCP settings
+
+### Cursor, VSCode, other MCP clients
+
+Download the latest `miggo-server-mcp` from the [releases page](https://github.com/miggo/miggo-public-mcp/releases)
+
+> ![NOTE]
+> On Mac, you'll need to move the file outside of the Downloads folder
+> On Windows, download the exe
+
+If you're using Cursor, use this shortcut:
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=miggo-public-mcp&config=eyJjb21tYW5kIjoiYmFzaCIsImFyZ3MiOlsiLWMiLCInL3BhdGgvdG8vbWlnZ28tcHVibGljLW1jcCciXSwiZW52Ijp7Ik1JR0dPX1BVQkxJQ19UT0tFTiI6Im1pZ2dvLWFwaS10b2tlbiJ9fQ%3D%3D)
+
+Or, add the following configuration to your MCP client:
+
+```json
+{
+  "mcpServers": {
+    "miggo-public": {
+      "command": "bash",
+      "args": ["-c", "'/path/to/miggo-public-mcp'"],
+      "env": {
+        "MIGGO_PUBLIC_TOKEN": "miggo-api-token"
+      }
+    }
+  }
+}
+```
 
 ## Configuration
 
@@ -20,110 +49,68 @@ Export the following environment variables before launching the server:
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `MIGGO_PUBLIC_API_URL` | No | Base URL of the Miggo public API. Defaults to `https://api-beta.miggo.io`. |
 | `MIGGO_PUBLIC_TOKEN` | Yes | Bearer token issued by Miggo's authentication flow. |
+| `MIGGO_PUBLIC_API_URL` | No | Base URL of the Miggo public API. Defaults to `https://api-beta.miggo.io`. |
 | `MIGGO_PUBLIC_DEFAULT_TAKE` | Optional | Default page size for list endpoints (max 50). |
 | `MIGGO_PUBLIC_DEFAULT_SKIP` | Optional | Default offset for list endpoints. |
 | `MIGGO_PUBLIC_DEFAULT_SORT` | Optional | Default `field,direction` pairs (e.g. `risk,desc`). |
 
-Settings are validated with `pydantic-settings`; misconfigured values raise a
-concise error before the server starts.
+## CLI use
 
-## Usage
+> ![NOTE]
+> Ensure you're exporting the env var MIGGO_PUBLIC_TOKEN
 
-Launch the stdio server via the console script:
+Launch the stdio server with a run wrapper:
 
 ```bash
-uv run miggo-public-mcp
+uv run ./run.py
 ```
 
-or directly:
+This can be run from any directory - you can embed any full path that you like.
+
+You can also run the MCP inspector:
 
 ```bash
-uv run python -m miggo_public_server.main
+uv run mcp dev ./run.py
 ```
 
-You can also run with the MCP inspector:
+## Building artefacts
+
+Run the combined build helper to produce both the standalone binaries and MCPB bundle:
 
 ```bash
-uv run mcp dev miggo_public_server/run.py  # run from the repository root
+uv run python scripts/build.py
 ```
 
-### Manual Smoke Test
+This regenerates the [Pyfuze](https://github.com/TanixLu/pyfuze) executables in `dist/` (`miggo-public-mcp`, `miggo-public-mcp.exe`) and writes the MCP bundle to `dist/miggo-public-mcp.mcpb`. Pass `--help` to see more options.
 
-With valid credentials:
+## Contributing
 
-```bash
-export MIGGO_PUBLIC_TOKEN=...
-uv run miggo-public-mcp
-```
+This server is implemented with:
+- FastMCP as the mcp abstraction
+- uv for package management
+- pytest for testing
+- ruff for formatting and linting
+- pyfuze for standalone executable bundling
 
-From another terminal or MCP client issue:
+Quick contrib scripts:
 
-```bash
-uv run python - <<'PY'
-from mcp.client.stdio import StdioClient
-from mcp.client.session import ClientSession
-
-async def main():
-    async with StdioClient.spawn(["uv", "run", "miggo-public-mcp"]) as client:
-        async with ClientSession(client):
-            result = await client.call_tool("services_count", {})
-            print(result.content[0].text)
-
-import asyncio
-asyncio.run(main())
-PY
-```
-
-### Available Tools
-
-- `services_list`, `services_get`, `services_count`, `services_facets`
-- `endpoints_list`, `endpoints_get`, `endpoints_count`, `endpoints_facets`
-- `third_parties_list`, `third_parties_get`, `third_parties_count`, `third_parties_facets`
-- `findings_list`, `findings_get`, `findings_count`, `findings_facets`
-- `vulnerabilities_list`, `vulnerabilities_get`, `vulnerabilities_count`, `vulnerabilities_facets`
-- `project_get`
-
-### Tests
-
-Run the async unit suite with:
-
-```bash
+```sh
+# Test
 uv run pytest
+
+# Format & lint
+uv run ruff format .
+uv run ruff check .
+
+# Build MCPB bundle
+uv run python scripts/build.py
 ```
 
-## Code Quality
-
-Sync the development tooling before running local checks:
+Install pre-commit hooks for greater ease:
 
 ```bash
-uv sync --extra dev
+uv run pre-commit install
 ```
 
-Format and lint the codebase with Ruff:
-
-```bash
-uv run --extra dev ruff format .
-uv run --extra dev ruff check .
-```
-
-Install and exercise the pre-commit hooks to keep the repo clean:
-
-```bash
-uv run --extra dev pre-commit install
-pre-commit run --all-files
-```
-
-Continuous integration runs in `.github/workflows/ci.yaml`, verifying `ruff format --check`, `ruff check`, and `pytest` on every push and pull request.
-
-## Release Notes & Versioning
-
-* Follow [SemVer](https://semver.org/) for the package version in `pyproject.toml`.
-* Publish tagged releases via `uv publish` (or `hatch build` + `twine upload`).
-* Update the change log (future `CHANGELOG.md`) prior to tagging a release.
-
-## Future Work
-
-1. Centralise response-model typing with Pydantic models for richer editor hints.
-2. Explore streaming support for large result sets if the API introduces it.
+Note that Pyfuze is relatively new - expect difficulties around upgrades.

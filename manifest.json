@@ -1,0 +1,35 @@
+{
+  "manifest_version": "0.2",
+  "name": "miggo-public-mcp",
+  "display_name": "Miggo Public API MCP Server",
+  "version": "0.1.0",
+  "description": "MCP server for Miggo's public API - provides tools to query services, endpoints, vulnerabilities, findings, and third-party integrations",
+  "author": {
+    "name": "Miggo",
+    "url": "https://miggo.io"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miggo/miggo-public-mcp"
+  },
+  "homepage": "https://github.com/miggo/miggo-public-mcp",
+  "license": "MIT",
+  "server": {
+    "type": "binary",
+    "entry_point": "miggo-public-mcp",
+    "mcp_config": {
+      "command": "bash",
+      "args": ["-c", "'${__dirname}/miggo-public-mcp'"],
+      "env": {
+        "MIGGO_PUBLIC_TOKEN": "${user_config.api_token}"
+      }
+    }
+  },
+  "user_config": {
+    "api_token": {
+      "title": "API Token",
+      "type": "string",
+      "description": "Miggo access key, see https://app.miggo.io/integrations/accessKey"
+    }
+  }
+}
