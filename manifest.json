@@ -10,9 +10,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/miggo/miggo-public-mcp"
+    "url": "https://github.com/miggo-io/miggo-public-mcp"
   },
-  "homepage": "https://github.com/miggo/miggo-public-mcp",
+  "homepage": "https://github.com/miggo-io/miggo-public-mcp",
   "license": "MIT",
   "server": {
     "type": "binary",

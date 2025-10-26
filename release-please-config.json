@@ -14,6 +14,11 @@
           "type": "json",
           "path": "manifest.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?@.name == 'miggo-public-mcp'].version"
         }
       ]
     }

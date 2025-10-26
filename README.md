@@ -11,15 +11,15 @@ In all installation scenarios, you'll first need to create an API token [through
 
 This server is packaged as an MCP Bundle (MCPB) for easy one-click installation in compatible applications.
 
-1. Download the latest `.mcpb` bundle from the [releases page](https://github.com/miggo/miggo-public-mcp/releases)
+1. Download the latest `.mcpb` bundle from the [releases page](https://github.com/miggo-io/miggo-public-mcp/releases)
 2. Open to install in Claude Desktop
 3. Configure your `MIGGO_PUBLIC_TOKEN` in the application's MCP settings
 
 ### Cursor, VSCode, other MCP clients
 
-Download the latest `miggo-server-mcp` from the [releases page](https://github.com/miggo/miggo-public-mcp/releases)
+Download the latest `miggo-server-mcp` from the [releases page](https://github.com/miggo-io/miggo-public-mcp/releases).
 
-> ![NOTE]
+> [!NOTE]
 > On Mac, you'll need to move the file outside of the Downloads folder
 > On Windows, download the exe
 
