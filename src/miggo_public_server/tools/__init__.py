@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, MutableMapping, Sequence
-from typing import Annotated, TypeVar
+from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import BeforeValidator, Field, validate_call
@@ -33,7 +33,6 @@ from ..query import compose_params
 from ..response import collection_response, scalar_response
 
 ToolCallable = Callable[..., Awaitable[MutableMapping[str, object]]]
-_ToolCallableT = TypeVar("_ToolCallableT", bound=ToolCallable)
 
 
 def _parse_skip(value: int | float | None) -> int | None:
@@ -1001,7 +1000,7 @@ def _parse_default_sort(value: str | None) -> list[tuple[str, str]]:
     return list(zip(tokens[::2], tokens[1::2], strict=False))
 
 
-def _register_tool(server: FastMCP, func: _ToolCallableT) -> _ToolCallableT:
+def _register_tool[T: ToolCallable](server: FastMCP, func: T) -> T:
     """Apply pydantic validation with mode='json' for MCP compatibility."""
     from pydantic import ConfigDict
 
