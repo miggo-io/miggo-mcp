@@ -45,3 +45,5 @@ jobs:
         if: steps.release.outputs.release_created == 'true'
         run: |
           gh release upload ${{ steps.release.outputs.tag_name }} dist/*
+        env:
+            GH_TOKEN: ${{ github.token }}
