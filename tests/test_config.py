@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from miggo_public_server.config import (
+from miggo_public_mcp.config import (
     DEFAULT_API_URL,
     DEFAULT_PAGE_SIZE,
     PublicServerSettings,

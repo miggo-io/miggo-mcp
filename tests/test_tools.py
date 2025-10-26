@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from miggo_public_server.config import PublicServerSettings
-from miggo_public_server.tools import register_all_tools
+from miggo_public_mcp.config import PublicServerSettings
+from miggo_public_mcp.tools import register_all_tools
 
 
 def make_settings() -> PublicServerSettings:

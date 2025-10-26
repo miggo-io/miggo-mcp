@@ -13,7 +13,7 @@
    - Capture public API authentication expectations (JWT bearer token via `auth` scheme) and note any required headers beyond what the spec states.
 
 2. **Isolated Package Skeleton**
-   - Create a fresh package directory at the repository root (e.g., `miggo_public_server/`).
+   - Create a fresh package directory at the repository root (e.g., `miggo_public_mcp/`).
    - Add its own `pyproject.toml` (or `uv` project metadata) declaring dependencies (`mcp[cli]`, `httpx`, testing stack) so it can be built and distributed separately.
    - Provide an entry script (`scripts/run_public_mcp.py` or similar) that invokes the package’s main module via `uv run`.
 
@@ -35,7 +35,7 @@
 
 6. **Quality & Testing**
    - Add async unit tests using `pytest` and `respx` (or `pytest-httpx`) to stub Miggo responses, covering happy paths, parameter serialization, and error handling for every services tool.
-   - Provide a manual smoke-test recipe (env vars + `uv run miggo_public_server/main.py` + CLI tool invocations) to verify real API communication when credentials are available.
+   - Provide a manual smoke-test recipe (env vars + `uv run miggo_public_mcp/main.py` + CLI tool invocations) to verify real API communication when credentials are available.
 
 7. **Documentation & Release Prep**
    - Document installation, configuration, and usage in a new `README.md` scoped to the public server package, highlighting any public-API-specific constraints.

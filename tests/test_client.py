@@ -1,7 +1,7 @@
 import pytest
 
-from miggo_public_server.client import MiggoApiError, MiggoPublicClient
-from miggo_public_server.config import (
+from miggo_public_mcp.client import MiggoApiError, MiggoPublicClient
+from miggo_public_mcp.config import (
     DEFAULT_ACCESS_KEY_EXCHANGE_URL,
     DEFAULT_ACCESS_KEY_ID,
     PublicServerSettings,
