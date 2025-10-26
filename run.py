@@ -10,7 +10,7 @@ import shutil
 import sys
 from collections.abc import Sequence
 
-_BOOTSTRAP_SENTINEL = "MIGGO_PUBLIC_SERVER_BOOTSTRAPPED"
+_BOOTSTRAP_SENTINEL = "MIGGO_PUBLIC_MCP_BOOTSTRAPPED"
 
 
 def _ensure_uv_bootstrap(argv: Sequence[str]) -> None:
@@ -58,8 +58,8 @@ if SRC_DIR.is_dir():
 
 # We import at the bottom since now we're absolutely sure we've been
 # bootstrapped
-from miggo_public_server.config import PublicServerSettings  # noqa: E402
-from miggo_public_server.main import build_server  # noqa: E402
+from miggo_public_mcp.config import PublicServerSettings  # noqa: E402
+from miggo_public_mcp.main import build_server  # noqa: E402
 
 _settings = PublicServerSettings()
 server = build_server(_settings)

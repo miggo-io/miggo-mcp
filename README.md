@@ -84,6 +84,12 @@ uv run python scripts/build.py
 
 This regenerates the [Pyfuze](https://github.com/TanixLu/pyfuze) executables in `dist/` (`miggo-public-mcp`, `miggo-public-mcp.exe`) and writes the MCP bundle to `dist/miggo-public-mcp.mcpb`. Pass `--help` to see more options.
 
+## Release process
+
+We use [release-please](https://github.com/googleapis/release-please) to cut releases and manage version bumps.
+
+In normal operation you just review and merge the release PR that release-please opens. In case manual intervention is needed, the workflow can be trigerred manually.
+
 ## Contributing
 
 This server is implemented with:

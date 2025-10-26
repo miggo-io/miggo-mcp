@@ -7,15 +7,13 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
-        with:
-          python-version: "3.12"
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
       - name: Sync dependencies
         run: uv sync --all-extras
-      - name: Ruff format
+      - name: Format
         run: uv run ruff format --check .
-      - name: Ruff check
+      - name: Lint
         run: uv run ruff check .
-      - name: Pytest
+      - name: Test
         run: uv run pytest
