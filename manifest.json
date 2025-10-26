@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "miggo-public-mcp",
   "display_name": "Miggo Public API MCP Server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for Miggo's public API - provides tools to query services, endpoints, vulnerabilities, findings, and third-party integrations",
   "author": {
     "name": "Miggo",
@@ -19,7 +19,10 @@
     "entry_point": "miggo-public-mcp",
     "mcp_config": {
       "command": "bash",
-      "args": ["-c", "'${__dirname}/miggo-public-mcp'"],
+      "args": [
+        "-c",
+        "'${__dirname}/miggo-public-mcp'"
+      ],
       "env": {
         "MIGGO_PUBLIC_TOKEN": "${user_config.api_token}"
       }
