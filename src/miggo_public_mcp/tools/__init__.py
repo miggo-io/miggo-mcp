@@ -117,9 +117,8 @@ def register_services_tools(
         take: Take = None,
         sort: Sequence[tuple[ServiceField, SortDirection]] | None = None,
     ) -> dict[str, object]:
-        """Search Miggo services.
-
-        Purpose: Search services and filter/sort/paginate for browsing or selection.
+        """Search for services in your Miggo environment. Use to get an
+        overview of what's running and get a feel for what's available.
 
         Data fields:
         - id: service ID
@@ -163,8 +162,6 @@ def register_services_tools(
         service_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
         """Fetch a single service by id.
-
-        Purpose: Retrieve a specific Service record for detail views or joins.
 
         Returns:
         - data: Service object (see fields listed in services_list)
@@ -239,14 +236,10 @@ def register_services_tools(
         sort: Sequence[tuple[ServiceField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> dict[str, object]:
-        """Retrieve facets for services.
-
-        Purpose: Get possible field values after filters to power filters/auto-complete.
+        """Get possible field values for service objects.
 
         Returns:
         - data: object mapping fieldName -> list of string values
-        - meta: object with query info (sort/take/skip) when provided
-        - status: optional HTTP status code from Miggo
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -302,9 +295,9 @@ def register_endpoints_tools(
         take: Take = None,
         sort: Sequence[tuple[EndpointField, SortDirection]] | None = None,
     ) -> dict[str, object]:
-        """Search endpoints.
-
-        Purpose: Search endpoints with filters/sort/paging for discovery and analysis.
+        """Search for endpoints in your Miggo environment. Use when more
+        in-depth understanding of the environment is needed, or when looking
+        for specific endpoints or how services are connected.
 
         Data fields:
         - id: endpoint ID
@@ -349,12 +342,8 @@ def register_endpoints_tools(
     ) -> dict[str, object]:
         """Fetch a single endpoint by id.
 
-        Purpose: Retrieve a specific Endpoint record for details or joins.
-
         Returns:
         - data: Endpoint object (see fields listed in endpoints_list)
-        - meta: optional metadata if present in API response
-        - status: optional HTTP status code from Miggo
         """
         params = compose_params(
             filters={"id": [endpoint_id]},
@@ -386,9 +375,7 @@ def register_endpoints_tools(
         is_third_party_communication: bool | None = None,
         risk_scores: Sequence[float] | None = None,
     ) -> dict[str, object]:
-        """Count endpoints matching filters.
-
-        Purpose: Determine result size or drive pagination without fetching records.
+        """Count the number of endpoints matching the given filters.
 
         Returns:
         - data: integer total count
@@ -427,14 +414,10 @@ def register_endpoints_tools(
         sort: Sequence[tuple[EndpointField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> dict[str, object]:
-        """Retrieve facets for endpoints.
-
-        Purpose: Get possible field values after filters to power filters/auto-complete.
+        """Get possible field values for endpoint objects.
 
         Returns:
         - data: object mapping fieldName -> list of string values
-        - meta: object with query info (sort/take/skip) when provided
-        - status: optional HTTP status code from Miggo
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -486,19 +469,15 @@ def register_third_parties_tools(
         take: Take = None,
         sort: Sequence[tuple[ThirdPartyField, SortDirection]] | None = None,
     ) -> dict[str, object]:
-        """Search third-party integrations.
-
-        Purpose: Search external service relationships for governance and analysis.
+        """Search for third-parties in your Miggo environment. These are
+        services external to the environment, like SaaS vendors. Use when
+        there's a need to assess third-party risk, data exposure, or compliance
 
         Data fields:
         - id: third-party ID
         - type: resource type ("third-party")
         - domain: third-party domain
-        - firstSeen: first seen timestamp
-        - lastSeen: last seen timestamp
-        - createdAt: created timestamp
-        - updatedAt: updated timestamp
-        - service: related service name
+        - service: which service calls this third party
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -523,12 +502,8 @@ def register_third_parties_tools(
     ) -> dict[str, object]:
         """Fetch a single third-party by id.
 
-        Purpose: Retrieve a ThirdParty record for details or joins.
-
         Returns:
         - data: ThirdParty object (see fields listed in third_parties_list)
-        - meta: optional metadata if present in API response
-        - status: optional HTTP status code from Miggo
         """
         params = compose_params(
             filters={"id": [third_party_id]},
@@ -553,14 +528,8 @@ def register_third_parties_tools(
         ids: Sequence[str] | None = None,
         domains: Sequence[str] | None = None,
         service_names: Sequence[str] | None = None,
-        first_seen: Sequence[int] | None = None,
-        last_seen: Sequence[int] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
     ) -> dict[str, object]:
-        """Count third-party integrations matching filters.
-
-        Purpose: Determine result size or drive pagination without fetching records.
+        """Count the number of third-parties matching the given filters.
 
         Returns:
         - data: integer total count
@@ -569,10 +538,6 @@ def register_third_parties_tools(
             id=ids,
             domain=domains,
             service=service_names,
-            firstSeen=first_seen,
-            lastSeen=last_seen,
-            createdAt=created_at,
-            updatedAt=updated_at,
         )
 
         params = compose_params(filters=filters)
@@ -586,33 +551,21 @@ def register_third_parties_tools(
         ids: Sequence[str] | None = None,
         domains: Sequence[str] | None = None,
         service_names: Sequence[str] | None = None,
-        first_seen: Sequence[int] | None = None,
-        last_seen: Sequence[int] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[ThirdPartyField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> dict[str, object]:
-        """Retrieve facets for third-party integrations.
-
-        Purpose: Get possible field values after filters to power filters/auto-complete.
+        """Get possible field values for third-party objects.
 
         Returns:
         - data: object mapping fieldName -> list of string values
-        - meta: object with query info (sort/take/skip) when provided
-        - status: optional HTTP status code from Miggo
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
             domain=domains,
             service=service_names,
-            firstSeen=first_seen,
-            lastSeen=last_seen,
-            createdAt=created_at,
-            updatedAt=updated_at,
         )
 
         params = compose_params(
@@ -650,8 +603,6 @@ def register_findings_tools(
         statuses: Sequence[FindingStatus] | None = None,
         descriptions: Sequence[str] | None = None,
         rule_ids: Sequence[str] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[FindingField, SortDirection]] | None = None,
@@ -711,8 +662,6 @@ def register_findings_tools(
             status=statuses,
             description=descriptions,
             ruleId=rule_ids,
-            createdAt=created_at,
-            updatedAt=updated_at,
         )
 
         params = compose_params(
@@ -764,8 +713,6 @@ def register_findings_tools(
         statuses: Sequence[FindingStatus] | None = None,
         descriptions: Sequence[str] | None = None,
         rule_ids: Sequence[str] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
     ) -> dict[str, object]:
         """Count findings matching filters.
 
@@ -781,8 +728,6 @@ def register_findings_tools(
             status=statuses,
             description=descriptions,
             ruleId=rule_ids,
-            createdAt=created_at,
-            updatedAt=updated_at,
         )
 
         params = compose_params(filters=filters)
@@ -799,8 +744,6 @@ def register_findings_tools(
         statuses: Sequence[FindingStatus] | None = None,
         descriptions: Sequence[str] | None = None,
         rule_ids: Sequence[str] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[FindingField, SortDirection]] | None = None,
@@ -823,8 +766,6 @@ def register_findings_tools(
             status=statuses,
             description=descriptions,
             ruleId=rule_ids,
-            createdAt=created_at,
-            updatedAt=updated_at,
         )
 
         params = compose_params(
@@ -865,9 +806,6 @@ def register_vulnerabilities_tools(
         statuses: Sequence[VulnerabilityStatus] | None = None,
         service_names: Sequence[str] | None = None,
         service_sensitivity_tags: Sequence[str] | None = None,
-        last_seen: Sequence[int] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
         is_internet_facing: bool | None = None,
         fixed_versions: Sequence[str] | None = None,
         vulnerability_ids: Sequence[str] | None = None,
@@ -915,9 +853,6 @@ def register_vulnerabilities_tools(
             status=statuses,
             serviceName=service_names,
             serviceSensitivitiesTags=service_sensitivity_tags,
-            lastSeen=last_seen,
-            createdAt=created_at,
-            updatedAt=updated_at,
             isInternetFacing=is_internet_facing,
             fixedVersions=fixed_versions,
             vulnId=vulnerability_ids,
@@ -976,9 +911,6 @@ def register_vulnerabilities_tools(
         statuses: Sequence[VulnerabilityStatus] | None = None,
         service_names: Sequence[str] | None = None,
         service_sensitivity_tags: Sequence[str] | None = None,
-        last_seen: Sequence[int] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
         is_internet_facing: bool | None = None,
         fixed_versions: Sequence[str] | None = None,
         vulnerability_ids: Sequence[str] | None = None,
@@ -1002,9 +934,6 @@ def register_vulnerabilities_tools(
             status=statuses,
             serviceName=service_names,
             serviceSensitivitiesTags=service_sensitivity_tags,
-            lastSeen=last_seen,
-            createdAt=created_at,
-            updatedAt=updated_at,
             isInternetFacing=is_internet_facing,
             fixedVersions=fixed_versions,
             vulnId=vulnerability_ids,
@@ -1029,9 +958,6 @@ def register_vulnerabilities_tools(
         statuses: Sequence[VulnerabilityStatus] | None = None,
         service_names: Sequence[str] | None = None,
         service_sensitivity_tags: Sequence[str] | None = None,
-        last_seen: Sequence[int] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
         is_internet_facing: bool | None = None,
         fixed_versions: Sequence[str] | None = None,
         vulnerability_ids: Sequence[str] | None = None,
@@ -1062,9 +988,6 @@ def register_vulnerabilities_tools(
             status=statuses,
             serviceName=service_names,
             serviceSensitivitiesTags=service_sensitivity_tags,
-            lastSeen=last_seen,
-            createdAt=created_at,
-            updatedAt=updated_at,
             isInternetFacing=is_internet_facing,
             fixedVersions=fixed_versions,
             vulnId=vulnerability_ids,
