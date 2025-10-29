@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "miggo-public-mcp",
   "display_name": "Miggo Public API MCP Server",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server for Miggo's public API - provides tools to query services, endpoints, vulnerabilities, findings, and third-party integrations",
   "author": {
     "name": "Miggo",
