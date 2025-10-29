@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/miggo-io/miggo-public-mcp/compare/v0.2.0...v0.2.1) (2025-10-29)
+
+
+### Bug Fixes
+
+* Tighten tool specs ([#3](https://github.com/miggo-io/miggo-public-mcp/issues/3)) ([796483c](https://github.com/miggo-io/miggo-public-mcp/commit/796483ce327a9459b1f01d3c0919891f9c8ce83b))
+
 ## [0.2.0](https://github.com/miggo-io/miggo-public-mcp/compare/v0.1.0...v0.2.0) (2025-10-26)
 
 
