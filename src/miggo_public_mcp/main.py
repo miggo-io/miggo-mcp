@@ -39,7 +39,7 @@ def build_server(settings: PublicServerSettings) -> FastMCP:
         finally:
             await client.aclose()
 
-    server = FastMCP("miggo-public-services", lifespan=lifespan)
+    server = FastMCP("miggo-public-api", lifespan=lifespan)
     register_all_tools(server, settings, client)
     return server
 
