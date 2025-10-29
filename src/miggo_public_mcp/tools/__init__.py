@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping, MutableMapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
-from pydantic import BeforeValidator, Field, validate_call
+from pydantic import BeforeValidator, Field, WithJsonSchema
 
 from ..client import MiggoPublicClient
 from ..config import PublicServerSettings
@@ -32,7 +32,7 @@ from ..constants import (
 from ..query import compose_params
 from ..response import collection_response, scalar_response
 
-ToolCallable = Callable[..., Awaitable[MutableMapping[str, object]]]
+ToolCallable = Callable[..., Awaitable[dict[str, object]]]
 
 
 def _parse_skip(value: int | float | None) -> int | None:
@@ -64,17 +64,28 @@ def _parse_take(value: int | float | None) -> int | None:
 
 
 # Type aliases for paging parameters with validation
-Skip = Annotated[int | None, BeforeValidator(_parse_skip)]
-Take = Annotated[int | None, BeforeValidator(_parse_take)]
+# TODO: Claude with cursor *sometimes* has problem with these tool calls,
+# passing in a string which fails conversion. It's oddly difficult to debug what
+# calls are happening in practice
+Skip = Annotated[
+    int | None,
+    BeforeValidator(_parse_skip),
+    WithJsonSchema({"type": "integer", "nullable": True}),
+]
+Take = Annotated[
+    int | None,
+    BeforeValidator(_parse_take),
+    WithJsonSchema({"type": "integer", "nullable": True}),
+]
 
 
 def register_all_tools(
     server: FastMCP,
     settings: PublicServerSettings,
     client: MiggoPublicClient,
-) -> dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]]:
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register the complete set of Miggo public MCP tools."""
-    tools: dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]] = {}
+    tools: dict[str, Callable[..., Awaitable[dict[str, object]]]] = {}
     tools.update(register_services_tools(server, settings, client))
     tools.update(register_endpoints_tools(server, settings, client))
     tools.update(register_third_parties_tools(server, settings, client))
@@ -88,11 +99,12 @@ def register_services_tools(
     server: FastMCP,
     settings: PublicServerSettings,
     client: MiggoPublicClient,
-) -> dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]]:
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for Miggo services endpoints."""
     default_sort = _parse_default_sort(settings.default_sort)
 
-    async def services_list(
+    @server.tool()
+    async def services_search(
         *,
         ids: Sequence[str] | None = None,
         names: Sequence[str] | None = None,
@@ -101,14 +113,30 @@ def register_services_tools(
         is_authenticated: bool | None = None,
         technologies: Sequence[str] | None = None,
         risks: Sequence[str] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
-        last_accessed: Sequence[int] | None = None,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[ServiceField, SortDirection]] | None = None,
-    ) -> MutableMapping[str, object]:
-        """List Miggo services with optional filtering, sorting, and pagination."""
+    ) -> dict[str, object]:
+        """Search Miggo services.
+
+        Purpose: Search services and filter/sort/paginate for browsing or selection.
+
+        Data fields:
+        - id: service ID
+        - name: service name (nullable)
+        - isInternetFacing: internet-exposed flag (nullable)
+        - isAuthenticated: requires auth flag (nullable)
+        - type: resource type ("service")
+        - isThirdPartyCommunication: connects to third parties
+        - dataSensitivity: sensitivity tags (PII | PCI | PHI | SECRET | TOKEN)
+        - createdAt: created timestamp
+        - updatedAt: updated timestamp
+        - technology: primary technology/language (nullable)
+        - lastAccessed: last access timestamp (nullable)
+        - sources: source systems
+        - domains: associated domains
+        - risk: risk score or label (string | number | null)
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
@@ -118,9 +146,6 @@ def register_services_tools(
             isAuthenticated=is_authenticated,
             technology=technologies,
             risk=risks,
-            createdAt=created_at,
-            updatedAt=updated_at,
-            lastAccessed=last_accessed,
         )
 
         params = compose_params(
@@ -133,12 +158,19 @@ def register_services_tools(
         payload = await client.get("/v1/services/", params=params)
         return collection_response(payload)
 
-    services_list = _register_tool(server, services_list)
-
+    @server.tool()
     async def services_get(
         service_id: Annotated[str, Field(min_length=1)],
-    ) -> MutableMapping[str, object]:
-        """Fetch a single Miggo service by identifier."""
+    ) -> dict[str, object]:
+        """Fetch a single service by id.
+
+        Purpose: Retrieve a specific Service record for detail views or joins.
+
+        Returns:
+        - data: Service object (see fields listed in services_list)
+        - meta: optional metadata if present in API response
+        - status: optional HTTP status code from Miggo
+        """
         params = compose_params(
             filters={"id": [service_id]},
             take=1,
@@ -157,8 +189,7 @@ def register_services_tools(
             response["meta"] = meta
         return response
 
-    services_get = _register_tool(server, services_get)
-
+    @server.tool()
     async def services_count(
         *,
         ids: Sequence[str] | None = None,
@@ -168,11 +199,14 @@ def register_services_tools(
         is_authenticated: bool | None = None,
         technologies: Sequence[str] | None = None,
         risks: Sequence[str] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
-        last_accessed: Sequence[int] | None = None,
-    ) -> MutableMapping[str, object]:
-        """Return a count of services matching the provided filters."""
+    ) -> dict[str, object]:
+        """Count services matching filters.
+
+        Purpose: Quickly assess result size or drive pagination UI without fetching records.
+
+        Returns:
+        - data: integer total count
+        """
         filters = _build_where_filters(
             id=ids,
             name=names,
@@ -181,9 +215,6 @@ def register_services_tools(
             isAuthenticated=is_authenticated,
             technology=technologies,
             risk=risks,
-            createdAt=created_at,
-            updatedAt=updated_at,
-            lastAccessed=last_accessed,
         )
 
         params = compose_params(filters=filters)
@@ -192,8 +223,7 @@ def register_services_tools(
 
         return scalar_response(payload)
 
-    services_count = _register_tool(server, services_count)
-
+    @server.tool()
     async def services_facets(
         *,
         fields: Sequence[ServiceField] | None = None,
@@ -204,15 +234,20 @@ def register_services_tools(
         is_authenticated: bool | None = None,
         technologies: Sequence[str] | None = None,
         risks: Sequence[str] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
-        last_accessed: Sequence[int] | None = None,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[ServiceField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
-    ) -> MutableMapping[str, object]:
-        """Retrieve facets (distinct field values) for the services dataset."""
+    ) -> dict[str, object]:
+        """Retrieve facets for services.
+
+        Purpose: Get possible field values after filters to power filters/auto-complete.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        - meta: object with query info (sort/take/skip) when provided
+        - status: optional HTTP status code from Miggo
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
@@ -222,9 +257,6 @@ def register_services_tools(
             isAuthenticated=is_authenticated,
             technology=technologies,
             risk=risks,
-            createdAt=created_at,
-            updatedAt=updated_at,
-            lastAccessed=last_accessed,
         )
 
         params = compose_params(
@@ -239,10 +271,8 @@ def register_services_tools(
         payload = await client.get("/v1/services/facets", params=params)
         return collection_response(payload)
 
-    services_facets = _register_tool(server, services_facets)
-
     return {
-        "services_list": services_list,
+        "services_search": services_search,
         "services_get": services_get,
         "services_count": services_count,
         "services_facets": services_facets,
@@ -253,10 +283,11 @@ def register_endpoints_tools(
     server: FastMCP,
     settings: PublicServerSettings,
     client: MiggoPublicClient,
-) -> dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]]:
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for Miggo endpoint resources."""
 
-    async def endpoints_list(
+    @server.tool()
+    async def endpoints_search(
         *,
         ids: Sequence[str] | None = None,
         actions: Sequence[str] | None = None,
@@ -267,15 +298,28 @@ def register_endpoints_tools(
         is_authenticated: bool | None = None,
         is_third_party_communication: bool | None = None,
         risk_scores: Sequence[float] | None = None,
-        first_seen: Sequence[int] | None = None,
-        last_seen: Sequence[int] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[EndpointField, SortDirection]] | None = None,
-    ) -> MutableMapping[str, object]:
-        """List Miggo endpoints with optional filtering and pagination."""
+    ) -> dict[str, object]:
+        """Search endpoints.
+
+        Purpose: Search endpoints with filters/sort/paging for discovery and analysis.
+
+        Data fields:
+        - id: endpoint ID
+        - type: resource type ("endpoint")
+        - apiType: API style (nullable)
+        - action: HTTP method/action (nullable)
+        - route: path/route pattern (nullable)
+        - risk: risk score (number | null)
+        - serviceId: parent service ID (nullable)
+        - dataSensitivity: sensitivity tags (PII | PCI | PHI | SECRET | TOKEN)
+        - domains: associated domains
+        - isInternetFacing: internet-exposed flag
+        - isAuthenticated: requires auth flag
+        - isThirdPartyCommunication: connects to third parties
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
@@ -287,10 +331,6 @@ def register_endpoints_tools(
             isAuthenticated=is_authenticated,
             isThirdPartyCommunication=is_third_party_communication,
             risk=risk_scores,
-            firstSeen=first_seen,
-            lastSeen=last_seen,
-            createdAt=created_at,
-            updatedAt=updated_at,
         )
 
         params = compose_params(
@@ -303,12 +343,19 @@ def register_endpoints_tools(
         payload = await client.get("/v1/endpoints/", params=params)
         return collection_response(payload)
 
-    endpoints_list = _register_tool(server, endpoints_list)
-
+    @server.tool()
     async def endpoints_get(
         endpoint_id: Annotated[str, Field(min_length=1)],
-    ) -> MutableMapping[str, object]:
-        """Fetch a single endpoint by identifier."""
+    ) -> dict[str, object]:
+        """Fetch a single endpoint by id.
+
+        Purpose: Retrieve a specific Endpoint record for details or joins.
+
+        Returns:
+        - data: Endpoint object (see fields listed in endpoints_list)
+        - meta: optional metadata if present in API response
+        - status: optional HTTP status code from Miggo
+        """
         params = compose_params(
             filters={"id": [endpoint_id]},
             take=1,
@@ -326,8 +373,7 @@ def register_endpoints_tools(
             response["meta"] = meta
         return response
 
-    endpoints_get = _register_tool(server, endpoints_get)
-
+    @server.tool()
     async def endpoints_count(
         *,
         ids: Sequence[str] | None = None,
@@ -339,12 +385,14 @@ def register_endpoints_tools(
         is_authenticated: bool | None = None,
         is_third_party_communication: bool | None = None,
         risk_scores: Sequence[float] | None = None,
-        first_seen: Sequence[int] | None = None,
-        last_seen: Sequence[int] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
-    ) -> MutableMapping[str, object]:
-        """Count endpoints matching the provided filters."""
+    ) -> dict[str, object]:
+        """Count endpoints matching filters.
+
+        Purpose: Determine result size or drive pagination without fetching records.
+
+        Returns:
+        - data: integer total count
+        """
         filters = _build_where_filters(
             id=ids,
             action=actions,
@@ -355,18 +403,13 @@ def register_endpoints_tools(
             isAuthenticated=is_authenticated,
             isThirdPartyCommunication=is_third_party_communication,
             risk=risk_scores,
-            firstSeen=first_seen,
-            lastSeen=last_seen,
-            createdAt=created_at,
-            updatedAt=updated_at,
         )
 
         params = compose_params(filters=filters)
         payload = await client.get("/v1/endpoints/count", params=params)
         return scalar_response(payload)
 
-    endpoints_count = _register_tool(server, endpoints_count)
-
+    @server.tool()
     async def endpoints_facets(
         *,
         fields: Sequence[EndpointField] | None = None,
@@ -379,16 +422,20 @@ def register_endpoints_tools(
         is_authenticated: bool | None = None,
         is_third_party_communication: bool | None = None,
         risk_scores: Sequence[float] | None = None,
-        first_seen: Sequence[int] | None = None,
-        last_seen: Sequence[int] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[EndpointField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
-    ) -> MutableMapping[str, object]:
-        """Retrieve facets for endpoint resources."""
+    ) -> dict[str, object]:
+        """Retrieve facets for endpoints.
+
+        Purpose: Get possible field values after filters to power filters/auto-complete.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        - meta: object with query info (sort/take/skip) when provided
+        - status: optional HTTP status code from Miggo
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
@@ -400,10 +447,6 @@ def register_endpoints_tools(
             isAuthenticated=is_authenticated,
             isThirdPartyCommunication=is_third_party_communication,
             risk=risk_scores,
-            firstSeen=first_seen,
-            lastSeen=last_seen,
-            createdAt=created_at,
-            updatedAt=updated_at,
         )
 
         params = compose_params(
@@ -418,10 +461,8 @@ def register_endpoints_tools(
         payload = await client.get("/v1/endpoints/facets", params=params)
         return collection_response(payload)
 
-    endpoints_facets = _register_tool(server, endpoints_facets)
-
     return {
-        "endpoints_list": endpoints_list,
+        "endpoints_search": endpoints_search,
         "endpoints_get": endpoints_get,
         "endpoints_count": endpoints_count,
         "endpoints_facets": endpoints_facets,
@@ -432,32 +473,38 @@ def register_third_parties_tools(
     server: FastMCP,
     settings: PublicServerSettings,
     client: MiggoPublicClient,
-) -> dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]]:
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for third-party relationship endpoints."""
 
-    async def third_parties_list(
+    @server.tool()
+    async def third_parties_search(
         *,
         ids: Sequence[str] | None = None,
         domains: Sequence[str] | None = None,
         service_names: Sequence[str] | None = None,
-        first_seen: Sequence[int] | None = None,
-        last_seen: Sequence[int] | None = None,
-        created_at: Sequence[int] | None = None,
-        updated_at: Sequence[int] | None = None,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[ThirdPartyField, SortDirection]] | None = None,
-    ) -> MutableMapping[str, object]:
-        """List third-party integrations."""
+    ) -> dict[str, object]:
+        """Search third-party integrations.
+
+        Purpose: Search external service relationships for governance and analysis.
+
+        Data fields:
+        - id: third-party ID
+        - type: resource type ("third-party")
+        - domain: third-party domain
+        - firstSeen: first seen timestamp
+        - lastSeen: last seen timestamp
+        - createdAt: created timestamp
+        - updatedAt: updated timestamp
+        - service: related service name
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
             domain=domains,
             service=service_names,
-            firstSeen=first_seen,
-            lastSeen=last_seen,
-            createdAt=created_at,
-            updatedAt=updated_at,
         )
 
         params = compose_params(
@@ -470,12 +517,19 @@ def register_third_parties_tools(
         payload = await client.get("/v1/third-parties/", params=params)
         return collection_response(payload)
 
-    third_parties_list = _register_tool(server, third_parties_list)
-
+    @server.tool()
     async def third_parties_get(
         third_party_id: Annotated[str, Field(min_length=1)],
-    ) -> MutableMapping[str, object]:
-        """Fetch a specific third-party integration by identifier."""
+    ) -> dict[str, object]:
+        """Fetch a single third-party by id.
+
+        Purpose: Retrieve a ThirdParty record for details or joins.
+
+        Returns:
+        - data: ThirdParty object (see fields listed in third_parties_list)
+        - meta: optional metadata if present in API response
+        - status: optional HTTP status code from Miggo
+        """
         params = compose_params(
             filters={"id": [third_party_id]},
             take=1,
@@ -493,8 +547,7 @@ def register_third_parties_tools(
             response["meta"] = meta
         return response
 
-    third_parties_get = _register_tool(server, third_parties_get)
-
+    @server.tool()
     async def third_parties_count(
         *,
         ids: Sequence[str] | None = None,
@@ -504,8 +557,14 @@ def register_third_parties_tools(
         last_seen: Sequence[int] | None = None,
         created_at: Sequence[int] | None = None,
         updated_at: Sequence[int] | None = None,
-    ) -> MutableMapping[str, object]:
-        """Count third-party integrations matching the provided filters."""
+    ) -> dict[str, object]:
+        """Count third-party integrations matching filters.
+
+        Purpose: Determine result size or drive pagination without fetching records.
+
+        Returns:
+        - data: integer total count
+        """
         filters = _build_where_filters(
             id=ids,
             domain=domains,
@@ -520,8 +579,7 @@ def register_third_parties_tools(
         payload = await client.get("/v1/third-parties/count", params=params)
         return scalar_response(payload)
 
-    third_parties_count = _register_tool(server, third_parties_count)
-
+    @server.tool()
     async def third_parties_facets(
         *,
         fields: Sequence[ThirdPartyField] | None = None,
@@ -536,8 +594,16 @@ def register_third_parties_tools(
         take: Take = None,
         sort: Sequence[tuple[ThirdPartyField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
-    ) -> MutableMapping[str, object]:
-        """Retrieve facets for third-party integrations."""
+    ) -> dict[str, object]:
+        """Retrieve facets for third-party integrations.
+
+        Purpose: Get possible field values after filters to power filters/auto-complete.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        - meta: object with query info (sort/take/skip) when provided
+        - status: optional HTTP status code from Miggo
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
@@ -560,10 +626,8 @@ def register_third_parties_tools(
         payload = await client.get("/v1/third-parties/facets", params=params)
         return collection_response(payload)
 
-    third_parties_facets = _register_tool(server, third_parties_facets)
-
     return {
-        "third_parties_list": third_parties_list,
+        "third_parties_search": third_parties_search,
         "third_parties_get": third_parties_get,
         "third_parties_count": third_parties_count,
         "third_parties_facets": third_parties_facets,
@@ -574,10 +638,11 @@ def register_findings_tools(
     server: FastMCP,
     settings: PublicServerSettings,
     client: MiggoPublicClient,
-) -> dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]]:
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for findings endpoints."""
 
-    async def findings_list(
+    @server.tool()
+    async def findings_search(
         *,
         ids: Sequence[str] | None = None,
         types: Sequence[FindingType] | None = None,
@@ -590,8 +655,54 @@ def register_findings_tools(
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[FindingField, SortDirection]] | None = None,
-    ) -> MutableMapping[str, object]:
-        """List security findings."""
+    ) -> dict[str, object]:
+        """Search security findings.
+
+        Purpose: Search posture/drift/incidents with filters/sort/paging.
+
+        Data fields:
+        - id: finding ID
+        - type: category (THREAT_DETECTION | POSTURE | DRIFT | INCIDENT)
+        - findingSubType: subtype label (nullable)
+        - severity: severity level
+        - status: lifecycle status
+        - name: finding title
+        - description: finding details
+        - ruleId: rule identifier
+        - entities: related entities (endpoint/external-service/service/third-party/data-source/dns-record/cloud-resource/domain/vulnerability/cve_name)
+        - detectedAt: detection timestamp
+        - remediation: remediation guidance (nullable)
+        - createdAt: created timestamp
+        - updatedAt: updated timestamp
+        - evidence: evidence items (configuration/custom/span/trace/stack-trace/markdown/process_tree)
+        - values: additional key-value data
+        - attackStep: attack step (access/penetration/exploitation/impact/null)
+        - mitigation: mitigation guidance (nullable)
+        - tenantId: tenant identifier
+        - projectId: project identifier
+        - ticketId: external ticket id (nullable)
+        - sensitiveData: sensitivity tags (PII | PCI | PHI | SECRET | TOKEN) (nullable)
+        - ruleName: rule name (nullable)
+        - policyName: policy name (nullable)
+        - ticket: linked ticket object (nullable)
+        - isInternetFacing: internet-exposed flag (nullable)
+        - isWafProtected: WAF protection flag (nullable)
+        - is3rdPartyAccess: third-party access flag (nullable)
+        - isEncrypted: encryption flag (nullable)
+        - isAuthorized: authorization enforced flag (nullable)
+        - isAuthenticated: authentication enforced flag (nullable)
+        - summary: short summary (nullable)
+        - story: attack story steps (nullable)
+        - account: cloud account (nullable)
+        - region: cloud region (nullable)
+        - cluster: cluster name (nullable)
+        - namespace: namespace (nullable)
+        - deployment: deployment name (nullable)
+        - pod: pod name (nullable)
+        - container: container name (nullable)
+        - entityType: primary entity type (nullable)
+        - indicator: indicator list (e.g., isInternetFacing) (nullable)
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
@@ -614,12 +725,19 @@ def register_findings_tools(
         payload = await client.get("/v1/findings/", params=params)
         return collection_response(payload)
 
-    findings_list = _register_tool(server, findings_list)
-
+    @server.tool()
     async def findings_get(
         finding_id: Annotated[str, Field(min_length=1)],
-    ) -> MutableMapping[str, object]:
-        """Fetch a single finding by identifier."""
+    ) -> dict[str, object]:
+        """Fetch a single finding by id.
+
+        Purpose: Retrieve a Finding record for details or joins.
+
+        Returns:
+        - data: Finding object (see fields listed in findings_list)
+        - meta: optional metadata if present in API response
+        - status: optional HTTP status code from Miggo
+        """
         params = compose_params(
             filters={"id": [finding_id]},
             take=1,
@@ -637,8 +755,7 @@ def register_findings_tools(
             response["meta"] = meta
         return response
 
-    findings_get = _register_tool(server, findings_get)
-
+    @server.tool()
     async def findings_count(
         *,
         ids: Sequence[str] | None = None,
@@ -649,8 +766,14 @@ def register_findings_tools(
         rule_ids: Sequence[str] | None = None,
         created_at: Sequence[int] | None = None,
         updated_at: Sequence[int] | None = None,
-    ) -> MutableMapping[str, object]:
-        """Count findings matching the provided filters."""
+    ) -> dict[str, object]:
+        """Count findings matching filters.
+
+        Purpose: Determine result size or drive pagination without fetching records.
+
+        Returns:
+        - data: integer total count
+        """
         filters = _build_where_filters(
             id=ids,
             type=types,
@@ -666,8 +789,7 @@ def register_findings_tools(
         payload = await client.get("/v1/findings/count", params=params)
         return scalar_response(payload)
 
-    findings_count = _register_tool(server, findings_count)
-
+    @server.tool()
     async def findings_facets(
         *,
         fields: Sequence[FindingField] | None = None,
@@ -683,8 +805,16 @@ def register_findings_tools(
         take: Take = None,
         sort: Sequence[tuple[FindingField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
-    ) -> MutableMapping[str, object]:
-        """Retrieve facets for findings."""
+    ) -> dict[str, object]:
+        """Retrieve facets for findings.
+
+        Purpose: Get possible field values after filters to power filters/auto-complete.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        - meta: object with query info (sort/take/skip) when provided
+        - status: optional HTTP status code from Miggo
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
@@ -708,10 +838,8 @@ def register_findings_tools(
         payload = await client.get("/v1/findings/facets", params=params)
         return collection_response(payload)
 
-    findings_facets = _register_tool(server, findings_facets)
-
     return {
-        "findings_list": findings_list,
+        "findings_search": findings_search,
         "findings_get": findings_get,
         "findings_count": findings_count,
         "findings_facets": findings_facets,
@@ -722,10 +850,11 @@ def register_vulnerabilities_tools(
     server: FastMCP,
     settings: PublicServerSettings,
     client: MiggoPublicClient,
-) -> dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]]:
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for vulnerability endpoints."""
 
-    async def vulnerabilities_list(
+    @server.tool()
+    async def vulnerabilities_search(
         *,
         ids: Sequence[str] | None = None,
         cvss_scores: Sequence[str] | None = None,
@@ -747,15 +876,33 @@ def register_vulnerabilities_tools(
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[VulnerabilityField, SortDirection]] | None = None,
-    ) -> MutableMapping[str, object]:
-        """List known vulnerabilities.
+    ) -> dict[str, object]:
+        """Search known vulnerabilities.
 
-        Of special note is the vulnerability *execution status*, a unique Miggo differentiator:
-        - `STATIC`: The vulnerability is statically present in the codebase.
-        - `LOADED`: The vulnerability is loaded into memory.
-        - `EXECUTED`: The vulnerability was executed.
-        - `FUNCTION EXECUTED`: The vulnerability was executed as a function.
-        Use it to understand the severity of the vulnerability.
+        Purpose: Search vulnerabilities across services/images/packages with filters/sort/paging.
+
+        Data fields:
+        - id: vulnerability record ID
+        - cvss: CVSS score (nullable)
+        - cwe: CWE identifier (nullable)
+        - dependencyStatus: execution status (STATIC | LOADED | EXECUTED | FUNCTION EXECUTED | null)
+        - imageName: image name (nullable)
+        - severity: severity level
+        - serviceId: related service ID (nullable)
+        - status: lifecycle status (nullable)
+        - serviceName: related service name (nullable)
+        - serviceSensitivitiesTags: service sensitivity tags (nullable)
+        - lastSeen: last seen timestamp
+        - createdAt: created timestamp
+        - updatedAt: updated timestamp
+        - isInternetFacing: internet-exposed flag
+        - cluster: cluster name (nullable)
+        - namespace: namespace (nullable)
+        - type: resource type ("vulnerability")
+        - vulnId: vulnerability identifier (nullable)
+        - package: affected package name
+        - hasPublicFix: public fix available flag
+        - fixedVersions: fixed version list (nullable)
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -787,12 +934,19 @@ def register_vulnerabilities_tools(
         payload = await client.get("/v1/vulnerabilities/", params=params)
         return collection_response(payload)
 
-    vulnerabilities_list = _register_tool(server, vulnerabilities_list)
-
+    @server.tool()
     async def vulnerabilities_get(
         vulnerability_id: Annotated[str, Field(min_length=1)],
-    ) -> MutableMapping[str, object]:
-        """Fetch a single vulnerability by identifier."""
+    ) -> dict[str, object]:
+        """Fetch a single vulnerability by id.
+
+        Purpose: Retrieve a Vulnerability record for details or joins.
+
+        Returns:
+        - data: Vulnerability object (see fields listed in vulnerabilities_list)
+        - meta: optional metadata if present in API response
+        - status: optional HTTP status code from Miggo
+        """
         params = compose_params(
             filters={"id": [vulnerability_id]},
             take=1,
@@ -810,8 +964,7 @@ def register_vulnerabilities_tools(
             response["meta"] = meta
         return response
 
-    vulnerabilities_get = _register_tool(server, vulnerabilities_get)
-
+    @server.tool()
     async def vulnerabilities_count(
         *,
         ids: Sequence[str] | None = None,
@@ -831,8 +984,14 @@ def register_vulnerabilities_tools(
         vulnerability_ids: Sequence[str] | None = None,
         packages: Sequence[str] | None = None,
         has_public_fix: bool | None = None,
-    ) -> MutableMapping[str, object]:
-        """Count vulnerabilities matching the provided filters."""
+    ) -> dict[str, object]:
+        """Count vulnerabilities matching filters.
+
+        Purpose: Determine result size or drive pagination without fetching records.
+
+        Returns:
+        - data: integer total count
+        """
         filters = _build_where_filters(
             id=ids,
             cvss=cvss_scores,
@@ -857,8 +1016,7 @@ def register_vulnerabilities_tools(
         payload = await client.get("/v1/vulnerabilities/count", params=params)
         return scalar_response(payload)
 
-    vulnerabilities_count = _register_tool(server, vulnerabilities_count)
-
+    @server.tool()
     async def vulnerabilities_facets(
         *,
         fields: Sequence[VulnerabilityField] | None = None,
@@ -883,8 +1041,16 @@ def register_vulnerabilities_tools(
         take: Take = None,
         sort: Sequence[tuple[VulnerabilityField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
-    ) -> MutableMapping[str, object]:
-        """Retrieve facets for vulnerabilities."""
+    ) -> dict[str, object]:
+        """Retrieve facets for vulnerabilities.
+
+        Purpose: Get possible field values after filters to power filters/auto-complete.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        - meta: object with query info (sort/take/skip) when provided
+        - status: optional HTTP status code from Miggo
+        """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
@@ -917,10 +1083,8 @@ def register_vulnerabilities_tools(
         payload = await client.get("/v1/vulnerabilities/facets", params=params)
         return collection_response(payload)
 
-    vulnerabilities_facets = _register_tool(server, vulnerabilities_facets)
-
     return {
-        "vulnerabilities_list": vulnerabilities_list,
+        "vulnerabilities_search": vulnerabilities_search,
         "vulnerabilities_get": vulnerabilities_get,
         "vulnerabilities_count": vulnerabilities_count,
         "vulnerabilities_facets": vulnerabilities_facets,
@@ -931,15 +1095,22 @@ def register_project_tools(
     server: FastMCP,
     settings: PublicServerSettings,
     client: MiggoPublicClient,
-) -> dict[str, Callable[..., Awaitable[MutableMapping[str, object]]]]:
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools that expose Miggo project metadata."""
 
-    async def project_get() -> MutableMapping[str, object]:
-        """Return metadata for the authenticated project."""
+    @server.tool()
+    async def project_get() -> dict[str, object]:
+        """Return metadata for the authenticated project.
+
+        Purpose: Identify the current project context for scoping and display.
+
+        Returns:
+        - data: object with fields tenantId, projectId, projectName
+        - status: optional HTTP status code from Miggo
+        """
         payload = await client.get("/v1/project/")
         return collection_response(payload)
 
-    project_get = _register_tool(server, project_get)
     return {"project_get": project_get}
 
 
@@ -998,48 +1169,6 @@ def _parse_default_sort(value: str | None) -> list[tuple[str, str]]:
         return []
     tokens = [token for token in value.split(",") if token]
     return list(zip(tokens[::2], tokens[1::2], strict=False))
-
-
-def _register_tool[T: ToolCallable](server: FastMCP, func: T) -> T:
-    """Apply pydantic validation with mode='json' for MCP compatibility."""
-    from pydantic import ConfigDict
-
-    validated = validate_call(func, config=ConfigDict(strict=False))
-    _ensure_callable_globals(validated)
-    registered = server.tool()(validated)
-    return registered
-
-
-def _ensure_callable_globals(func: ToolCallable) -> None:
-    """Expose this module's typing symbols to decorated callables.
-
-    This is quite horrible - but that's what I get for trying to make FastMCP
-    and Pydantic play nice with each other..."""
-    source_globals = globals()
-    target_globals = func.__globals__
-    for name in (
-        "Sequence",
-        "Annotated",
-        "Field",
-        "MutableMapping",
-        "ServiceField",
-        "EndpointField",
-        "ThirdPartyField",
-        "FindingField",
-        "FindingType",
-        "FindingSeverity",
-        "FindingStatus",
-        "VulnerabilityField",
-        "VulnerabilityDependencyStatus",
-        "VulnerabilitySeverity",
-        "VulnerabilityStatus",
-        "SortDirection",
-        "MAX_PAGE_SIZE",
-        "Skip",
-        "Take",
-    ):
-        if name in source_globals and name not in target_globals:
-            target_globals[name] = source_globals[name]
 
 
 __all__ = [
