@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Annotated
+from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import BeforeValidator, Field, WithJsonSchema
@@ -11,6 +11,7 @@ from pydantic import BeforeValidator, Field, WithJsonSchema
 from ..client import MiggoPublicClient
 from ..config import PublicServerSettings
 from ..constants import (
+    API_MAX_PAGE_SIZE,
     ENDPOINT_DEFAULT_SORT,
     FINDING_DEFAULT_SORT,
     MAX_PAGE_SIZE,
@@ -147,14 +148,15 @@ def register_services_tools(
             risk=risks,
         )
 
-        params = compose_params(
+        sort_params = _resolve_sort(sort, default_sort)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/services/",
             filters=filters,
             skip=paging.skip,
             take=paging.take,
-            sort=_resolve_sort(sort, default_sort),
+            sort=sort_params,
         )
-
-        payload = await client.get("/v1/services/", params=params)
         return collection_response(payload)
 
     @server.tool()
@@ -326,14 +328,15 @@ def register_endpoints_tools(
             risk=risk_scores,
         )
 
-        params = compose_params(
+        sort_params = _resolve_sort(sort, ENDPOINT_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/endpoints/",
             filters=filters,
             skip=paging.skip,
             take=paging.take,
-            sort=_resolve_sort(sort, ENDPOINT_DEFAULT_SORT),
+            sort=sort_params,
         )
-
-        payload = await client.get("/v1/endpoints/", params=params)
         return collection_response(payload)
 
     @server.tool()
@@ -486,14 +489,15 @@ def register_third_parties_tools(
             service=service_names,
         )
 
-        params = compose_params(
+        sort_params = _resolve_sort(sort, THIRD_PARTY_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/third-parties/",
             filters=filters,
             skip=paging.skip,
             take=paging.take,
-            sort=_resolve_sort(sort, THIRD_PARTY_DEFAULT_SORT),
+            sort=sort_params,
         )
-
-        payload = await client.get("/v1/third-parties/", params=params)
         return collection_response(payload)
 
     @server.tool()
@@ -664,14 +668,15 @@ def register_findings_tools(
             ruleId=rule_ids,
         )
 
-        params = compose_params(
+        sort_params = _resolve_sort(sort, FINDING_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/findings/",
             filters=filters,
             skip=paging.skip,
             take=paging.take,
-            sort=_resolve_sort(sort, FINDING_DEFAULT_SORT),
+            sort=sort_params,
         )
-
-        payload = await client.get("/v1/findings/", params=params)
         return collection_response(payload)
 
     @server.tool()
@@ -860,13 +865,15 @@ def register_vulnerabilities_tools(
             hasPublicFix=has_public_fix,
         )
 
-        params = compose_params(
+        sort_params = _resolve_sort(sort, VULNERABILITY_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/vulnerabilities/",
             filters=filters,
             skip=paging.skip,
             take=paging.take,
-            sort=_resolve_sort(sort, VULNERABILITY_DEFAULT_SORT),
+            sort=sort_params,
         )
-        payload = await client.get("/v1/vulnerabilities/", params=params)
         return collection_response(payload)
 
     @server.tool()
@@ -1074,6 +1081,103 @@ def _resolve_paging(
     resolved_skip = settings.default_skip if skip is None else skip
     resolved_take = settings.default_take if take is None else take
     return _Paging(resolved_skip, resolved_take)
+
+
+async def _fetch_collection_pages(
+    client: MiggoPublicClient,
+    path: str,
+    *,
+    filters: Mapping[str, object] | None = None,
+    skip: int,
+    take: int,
+    sort: Sequence[Sequence[str]] | None = None,
+    search: str | None = None,
+    fields: Sequence[str] | None = None,
+    extra: Mapping[str, object] | None = None,
+) -> dict[str, Any]:
+    """Fetch a Miggo collection endpoint honoring ``take`` via client-side paging."""
+    if take <= 0:
+        return {
+            "data": [],
+            "meta": {
+                "query": {
+                    "skip": skip,
+                    "take": take,
+                    "pagesFetched": 0,
+                    "fetched": 0,
+                }
+            },
+        }
+
+    remaining = take
+    next_skip = skip
+    collected: list[Any] = []
+    aggregated_meta: dict[str, Any] | None = None
+    status_value: Any = None
+    pages = 0
+
+    while remaining > 0:
+        chunk_take = min(API_MAX_PAGE_SIZE, remaining)
+        params = compose_params(
+            filters=filters,
+            skip=next_skip,
+            take=chunk_take,
+            sort=sort,
+            search=search,
+            fields=fields,
+            extra=extra,
+        )
+        payload = await client.get(path, params=params)
+        data = payload.get("data")
+        if not isinstance(data, list):
+            return payload
+
+        collected.extend(data)
+
+        page_status = payload.get("status")
+        if page_status is not None:
+            status_value = page_status
+
+        meta = payload.get("meta")
+        if aggregated_meta is None:
+            aggregated_meta = dict(meta) if isinstance(meta, Mapping) else {}
+        elif isinstance(meta, Mapping):
+            for key, value in meta.items():
+                aggregated_meta.setdefault(key, value)
+
+        pages += 1
+        count = len(data)
+        remaining -= count
+        if remaining <= 0:
+            break
+        if count < chunk_take:
+            break
+        next_skip += count
+
+    meta_out: dict[str, Any] = {}
+    if aggregated_meta:
+        meta_out = dict(aggregated_meta)
+    query_meta = meta_out.get("query")
+    if isinstance(query_meta, Mapping):
+        query_meta = dict(query_meta)
+    else:
+        query_meta = {}
+    query_meta.update(
+        {
+            "skip": skip,
+            "take": take,
+            "pagesFetched": pages,
+            "fetched": len(collected),
+        }
+    )
+    meta_out["query"] = query_meta
+
+    result: dict[str, Any] = {"data": collected}
+    if meta_out:
+        result["meta"] = meta_out
+    if status_value is not None:
+        result["status"] = status_value
+    return result
 
 
 def _resolve_sort(
