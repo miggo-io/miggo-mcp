@@ -6,6 +6,7 @@ from miggo_public_mcp.config import (
     DEFAULT_PAGE_SIZE,
     PublicServerSettings,
 )
+from miggo_public_mcp.constants import MAX_PAGE_SIZE
 
 
 def test_settings_use_defaults_and_strip_slash():
@@ -57,4 +58,6 @@ def test_invalid_default_sort(data):
 
 def test_default_take_bounds():
     with pytest.raises(ValidationError):
-        PublicServerSettings.model_validate({"token": "abc", "default_take": "100"})
+        PublicServerSettings.model_validate(
+            {"token": "abc", "default_take": MAX_PAGE_SIZE + 1}
+        )

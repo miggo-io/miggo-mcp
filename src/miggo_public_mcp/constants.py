@@ -32,7 +32,8 @@ SERVICES_FIELDS = [
     "risk",
 ]
 
-MAX_PAGE_SIZE = 50
+MAX_PAGE_SIZE = 1000
+API_MAX_PAGE_SIZE = 50
 
 EndpointField = Literal[
     "id",
@@ -194,6 +195,7 @@ __all__ = [
     "FindingSeverity",
     "FindingStatus",
     "FindingType",
+    "API_MAX_PAGE_SIZE",
     "MAX_PAGE_SIZE",
     "SERVICES_FIELDS",
     "ServiceField",

@@ -4,7 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from miggo_public_mcp.client import MiggoApiError
 from miggo_public_mcp.config import PublicServerSettings
+from miggo_public_mcp.constants import API_MAX_PAGE_SIZE
 from miggo_public_mcp.tools import register_all_tools
 
 
@@ -19,7 +21,7 @@ def make_settings() -> PublicServerSettings:
 
 
 class DummyClient:
-    def __init__(self, settings, *, responses: dict[str, object]):
+    def __init__(self, settings: PublicServerSettings, *, responses: dict[str, object]):
         self.settings = settings
         self.responses = responses
         self.calls: list[tuple[str, dict | None]] = []
@@ -31,9 +33,16 @@ class DummyClient:
         self.calls.append((path, params))
         response = self.responses.get(path)
         if callable(response):
-            return response(params)
+            response = response(params)
         if response is None:
             raise AssertionError(f"Unexpected request path: {path}")
+
+        status = response.get("status")
+        if status is not None and status >= 400:
+            error = response.get("error", {})
+            message = error.get("message", "API Error")
+            raise MiggoApiError(f"Request to {path} failed with {status}: {message}")
+
         return response
 
 
@@ -117,6 +126,182 @@ async def test_services_list_validation(settings):
     dummy.responses["/v1/services/"] = {"status": 200, "data": []}
     result = await tools["services_search"](take=999)
     assert result["data"] == []
+
+
+@pytest.mark.asyncio
+async def test_services_search_paginates_when_take_exceeds_api_limit(settings):
+    def services_response(params):
+        skip = int(params["skip"])
+        take = int(params["take"])
+        total = API_MAX_PAGE_SIZE * 3 + 10
+        upper = min(skip + take, total)
+        data = [{"id": f"svc-{idx}"} for idx in range(skip, upper)]
+        return {
+            "status": 200,
+            "data": data,
+            "meta": {"query": {"skip": skip, "take": take}},
+        }
+
+    responses = {"/v1/services/": services_response}
+    tools, dummy = make_toolset(settings, responses)
+
+    take_value = API_MAX_PAGE_SIZE * 2 + 20
+    result = await tools["services_search"](skip=0, take=take_value)
+
+    assert len(result["data"]) == take_value
+    query_meta = result["meta"]["query"]
+    assert query_meta["take"] == take_value
+    assert query_meta["skip"] == 0
+    assert query_meta["pagesFetched"] == 3
+    assert query_meta["fetched"] == take_value
+
+    assert len(dummy.calls) == 3
+    first_call_params = dummy.calls[0][1]
+    second_call_params = dummy.calls[1][1]
+    third_call_params = dummy.calls[2][1]
+
+    assert first_call_params["take"] == str(API_MAX_PAGE_SIZE)
+    assert first_call_params["skip"] == "0"
+    assert second_call_params["skip"] == str(API_MAX_PAGE_SIZE)
+    assert third_call_params["skip"] == str(API_MAX_PAGE_SIZE * 2)
+    assert third_call_params["take"] == str(take_value - API_MAX_PAGE_SIZE * 2)
+
+
+@pytest.mark.asyncio
+async def test_pagination_stops_when_api_runs_out_of_data(settings):
+    total_items = API_MAX_PAGE_SIZE - 10
+
+    def services_response(params):
+        skip = int(params["skip"])
+        take = int(params["take"])
+        assert skip == 0
+        assert take == API_MAX_PAGE_SIZE
+        data = [{"id": f"svc-{idx}"} for idx in range(total_items)]
+        return {
+            "status": 200,
+            "data": data,
+            "meta": {"query": {"skip": skip, "take": take}},
+        }
+
+    responses = {"/v1/services/": services_response}
+    tools, dummy = make_toolset(settings, responses)
+
+    requested_take = API_MAX_PAGE_SIZE * 2
+    result = await tools["services_search"](skip=0, take=requested_take)
+
+    assert len(result["data"]) == total_items
+    query_meta = result["meta"]["query"]
+    assert query_meta["take"] == requested_take
+    assert query_meta["fetched"] == total_items
+    assert query_meta["pagesFetched"] == 1
+    assert len(dummy.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_pagination_handles_exact_page_multiple(settings):
+    def services_response(params):
+        skip = int(params.get("skip", 0))
+        take = int(params.get("take", 10))
+        total = API_MAX_PAGE_SIZE * 3
+        upper = min(skip + take, total)
+        data = [{"id": f"svc-{idx}"} for idx in range(skip, upper)]
+        return {
+            "status": 200,
+            "data": data,
+            "meta": {"query": {"skip": skip, "take": take}},
+        }
+
+    responses = {"/v1/services/": services_response}
+    tools, dummy = make_toolset(settings, responses)
+
+    take_value = API_MAX_PAGE_SIZE * 2
+    result = await tools["services_search"](skip=0, take=take_value)
+
+    assert len(result["data"]) == take_value
+    query_meta = result["meta"]["query"]
+    assert query_meta["take"] == take_value
+    assert query_meta["skip"] == 0
+    assert query_meta["pagesFetched"] == 2
+    assert query_meta["fetched"] == take_value
+
+    assert len(dummy.calls) == 2
+    first_call_params = dummy.calls[0][1]
+    second_call_params = dummy.calls[1][1]
+
+    assert first_call_params["take"] == str(API_MAX_PAGE_SIZE)
+    assert first_call_params["skip"] == "0"
+    assert second_call_params["take"] == str(API_MAX_PAGE_SIZE)
+    assert second_call_params["skip"] == str(API_MAX_PAGE_SIZE)
+
+
+@pytest.mark.asyncio
+async def test_pagination_makes_no_calls_for_zero_take(settings):
+    tools, dummy = make_toolset(settings, {})
+    result = await tools["services_search"](take=0)
+
+    assert result["data"] == []
+    assert result["meta"]["query"]["fetched"] == 0
+    assert result["meta"]["query"]["pagesFetched"] == 0
+    assert not dummy.calls
+
+
+@pytest.mark.asyncio
+async def test_pagination_respects_initial_skip(settings):
+    def services_response(params):
+        skip = int(params["skip"])
+        take = int(params["take"])
+        total = API_MAX_PAGE_SIZE * 3 + 20
+        upper = min(skip + take, total)
+        data = [{"id": f"svc-{idx}"} for idx in range(skip, upper)]
+        return {
+            "status": 200,
+            "data": data,
+            "meta": {"query": {"skip": skip, "take": take}},
+        }
+
+    responses = {"/v1/services/": services_response}
+    tools, dummy = make_toolset(settings, responses)
+
+    initial_skip = 10
+    take_value = API_MAX_PAGE_SIZE + 5
+    result = await tools["services_search"](skip=initial_skip, take=take_value)
+
+    assert len(result["data"]) == take_value
+    query_meta = result["meta"]["query"]
+    assert query_meta["take"] == take_value
+    assert query_meta["skip"] == initial_skip
+    assert query_meta["pagesFetched"] == 2
+    assert query_meta["fetched"] == take_value
+
+    assert len(dummy.calls) == 2
+    first_call_params = dummy.calls[0][1]
+    second_call_params = dummy.calls[1][1]
+
+    assert first_call_params["skip"] == str(initial_skip)
+    assert first_call_params["take"] == str(API_MAX_PAGE_SIZE)
+    assert second_call_params["skip"] == str(initial_skip + API_MAX_PAGE_SIZE)
+    assert second_call_params["take"] == str(5)
+
+
+@pytest.mark.asyncio
+async def test_pagination_handles_error_during_paging(settings):
+    error_message = "API failure"
+
+    def services_response(params):
+        skip = int(params["skip"])
+        if skip > 0:
+            return {"status": 500, "error": {"message": error_message}}
+        return {
+            "status": 200,
+            "data": [{"id": f"svc-{idx}"} for idx in range(API_MAX_PAGE_SIZE)],
+            "meta": {"query": {"skip": skip, "take": API_MAX_PAGE_SIZE}},
+        }
+
+    responses = {"/v1/services/": services_response}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(MiggoApiError, match=error_message):
+        await tools["services_search"](take=API_MAX_PAGE_SIZE + 1)
 
 
 @pytest.mark.asyncio
