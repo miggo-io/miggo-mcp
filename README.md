@@ -43,6 +43,14 @@ Or, add the following configuration to your MCP client:
 }
 ```
 
+## Example prompts
+
+> You're a senior security researcher. Create an onboarding guide to my miggo environment for new security personnel - what must they be aware of? What is its overall architecture? Include a report with detailed flowcharts and sequence diagrams.
+
+> In my Demo-retail environment, am I vulnerable to https://www.wiz.io/blog/shai-hulud-npm-supply-chain-attack ?
+
+> Look at my third parties in my miggo environment, which should I focus on next?
+
 ## Configuration
 
 Export the following environment variables before launching the server:
