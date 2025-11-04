@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/miggo-io/miggo-public-mcp/compare/v0.2.1...v0.3.0) (2025-11-04)
+
+
+### Features
+
+* add dependencies tools for software dependency management ([#9](https://github.com/miggo-io/miggo-public-mcp/issues/9)) ([1089b06](https://github.com/miggo-io/miggo-public-mcp/commit/1089b06936fad24a719331336d33a5cf716a187a))
+* implement client-side pagination for search tools ([#7](https://github.com/miggo-io/miggo-public-mcp/issues/7)) ([30f0d99](https://github.com/miggo-io/miggo-public-mcp/commit/30f0d9998a41e98be9a1a313e361d80a87632da3))
+
+
+### Documentation
+
+* Simple example prompts ([#10](https://github.com/miggo-io/miggo-public-mcp/issues/10)) ([fd57986](https://github.com/miggo-io/miggo-public-mcp/commit/fd5798648f0af5d3df0c0c0416aa0604958d375b))
+
 ## [0.2.1](https://github.com/miggo-io/miggo-public-mcp/compare/v0.2.0...v0.2.1) (2025-10-29)
 
 
