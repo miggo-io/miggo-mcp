@@ -12,11 +12,13 @@ from ..client import MiggoPublicClient
 from ..config import PublicServerSettings
 from ..constants import (
     API_MAX_PAGE_SIZE,
+    DEPENDENCY_DEFAULT_SORT,
     ENDPOINT_DEFAULT_SORT,
     FINDING_DEFAULT_SORT,
     MAX_PAGE_SIZE,
     THIRD_PARTY_DEFAULT_SORT,
     VULNERABILITY_DEFAULT_SORT,
+    DependencyField,
     EndpointField,
     FindingField,
     FindingSeverity,
@@ -92,6 +94,7 @@ def register_all_tools(
     tools.update(register_third_parties_tools(server, settings, client))
     tools.update(register_findings_tools(server, settings, client))
     tools.update(register_vulnerabilities_tools(server, settings, client))
+    tools.update(register_dependencies_tools(server, settings, client))
     tools.update(register_project_tools(server, settings, client))
     return tools
 
@@ -1021,6 +1024,198 @@ def register_vulnerabilities_tools(
     }
 
 
+def register_dependencies_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for dependency endpoints."""
+
+    @server.tool()
+    async def dependencies_search(
+        *,
+        names: Sequence[str] | None = None,
+        versions: Sequence[str] | None = None,
+        name_and_versions: Sequence[str] | None = None,
+        image_names: Sequence[str] | None = None,
+        latest_versions: Sequence[str] | None = None,
+        service_names: Sequence[str] | None = None,
+        statuses: Sequence[str] | None = None,
+        languages: Sequence[str] | None = None,
+        last_seen: Sequence[float] | None = None,
+        is_service_internet_facing: bool | None = None,
+        vulnerability_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[DependencyField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search software dependencies across services and images.
+
+        Data fields:
+        - id: dependency ID
+        - type: resource type ("dependency")
+        - name: dependency package name
+        - version: currently detected version
+        - nameAndVersion: combined identifier (e.g., package@version)
+        - imageName: associated container image (nullable)
+        - latestVersion: Miggo's latest known version
+        - serviceName: service using the dependency
+        - status: lifecycle status string (e.g., up_to_date)
+        - language: ecosystem/language identifier
+        - lastSeen: last observed timestamp (epoch milliseconds)
+        - firstSeen: first observed timestamp (epoch milliseconds)
+        - createdAt / updatedAt: record timestamps
+        - isServiceInternetFacing: whether the owning service is internet-exposed
+        - vulnerabilities: related vulnerability summaries
+        """
+
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            name=names,
+            version=versions,
+            nameAndVersion=name_and_versions,
+            imageName=image_names,
+            latestVersion=latest_versions,
+            serviceName=service_names,
+            status=statuses,
+            language=languages,
+            lastSeen=last_seen,
+            isServiceInternetFacing=is_service_internet_facing,
+            vulnerabilities=vulnerability_ids,
+        )
+
+        sort_params = _resolve_sort(sort, DEPENDENCY_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/dependencies/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=sort_params,
+        )
+        return collection_response(payload)
+
+    @server.tool()
+    async def dependencies_get(
+        dependency_id: Annotated[str, Field(min_length=1)],
+    ) -> dict[str, object]:
+        """Fetch a single dependency by id."""
+
+        params = compose_params(
+            filters={"id": [dependency_id]},
+            take=1,
+            sort=_resolve_sort(None, DEPENDENCY_DEFAULT_SORT),
+        )
+
+        payload = await client.get("/v1/dependencies/", params=params)
+
+        dependencies = payload.get("data") or []
+        if not dependencies:
+            raise ValueError(f"No dependency found for id {dependency_id!r}")
+
+        response = {"data": dependencies[0]}
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta:
+            response["meta"] = meta
+        return response
+
+    @server.tool()
+    async def dependencies_count(
+        *,
+        names: Sequence[str] | None = None,
+        versions: Sequence[str] | None = None,
+        name_and_versions: Sequence[str] | None = None,
+        image_names: Sequence[str] | None = None,
+        latest_versions: Sequence[str] | None = None,
+        service_names: Sequence[str] | None = None,
+        statuses: Sequence[str] | None = None,
+        languages: Sequence[str] | None = None,
+        last_seen: Sequence[float] | None = None,
+        is_service_internet_facing: bool | None = None,
+        vulnerability_ids: Sequence[str] | None = None,
+    ) -> dict[str, object]:
+        """Count dependencies matching filters.
+
+        Returns:
+        - data: integer total count
+        """
+
+        filters = _build_where_filters(
+            name=names,
+            version=versions,
+            nameAndVersion=name_and_versions,
+            imageName=image_names,
+            latestVersion=latest_versions,
+            serviceName=service_names,
+            status=statuses,
+            language=languages,
+            lastSeen=last_seen,
+            isServiceInternetFacing=is_service_internet_facing,
+            vulnerabilities=vulnerability_ids,
+        )
+
+        params = compose_params(filters=filters)
+
+        payload = await client.get("/v1/dependencies/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool()
+    async def dependencies_facets(
+        *,
+        fields: Sequence[DependencyField] | None = None,
+        names: Sequence[str] | None = None,
+        versions: Sequence[str] | None = None,
+        name_and_versions: Sequence[str] | None = None,
+        image_names: Sequence[str] | None = None,
+        latest_versions: Sequence[str] | None = None,
+        service_names: Sequence[str] | None = None,
+        statuses: Sequence[str] | None = None,
+        languages: Sequence[str] | None = None,
+        last_seen: Sequence[float] | None = None,
+        is_service_internet_facing: bool | None = None,
+        vulnerability_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[DependencyField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for dependency objects."""
+
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            name=names,
+            version=versions,
+            nameAndVersion=name_and_versions,
+            imageName=image_names,
+            latestVersion=latest_versions,
+            serviceName=service_names,
+            status=statuses,
+            language=languages,
+            lastSeen=last_seen,
+            isServiceInternetFacing=is_service_internet_facing,
+            vulnerabilities=vulnerability_ids,
+        )
+
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, DEPENDENCY_DEFAULT_SORT),
+            search=search,
+        )
+
+        payload = await client.get("/v1/dependencies/facets", params=params)
+        return collection_response(payload)
+
+    return {
+        "dependencies_search": dependencies_search,
+        "dependencies_get": dependencies_get,
+        "dependencies_count": dependencies_count,
+        "dependencies_facets": dependencies_facets,
+    }
+
+
 def register_project_tools(
     server: FastMCP,
     settings: PublicServerSettings,
@@ -1202,6 +1397,7 @@ __all__ = [
     "register_all_tools",
     "register_endpoints_tools",
     "register_findings_tools",
+    "register_dependencies_tools",
     "register_project_tools",
     "register_services_tools",
     "register_third_parties_tools",

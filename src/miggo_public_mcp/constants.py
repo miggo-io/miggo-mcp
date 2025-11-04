@@ -35,6 +35,36 @@ SERVICES_FIELDS = [
 MAX_PAGE_SIZE = 1000
 API_MAX_PAGE_SIZE = 50
 
+DependencyField = Literal[
+    "name",
+    "version",
+    "nameAndVersion",
+    "imageName",
+    "latestVersion",
+    "serviceName",
+    "status",
+    "language",
+    "lastSeen",
+    "isServiceInternetFacing",
+    "vulnerabilities",
+]
+
+DEPENDENCY_FIELDS = [
+    "name",
+    "version",
+    "nameAndVersion",
+    "imageName",
+    "latestVersion",
+    "serviceName",
+    "status",
+    "language",
+    "lastSeen",
+    "isServiceInternetFacing",
+    "vulnerabilities",
+]
+
+DEPENDENCY_DEFAULT_SORT = [("vulnerabilities", "desc")]
+
 EndpointField = Literal[
     "id",
     "action",
@@ -181,10 +211,14 @@ ALL_SORT_FIELDS = sorted(
         *THIRD_PARTY_FIELDS,
         *FINDING_FIELDS,
         *VULNERABILITY_FIELDS,
+        *DEPENDENCY_FIELDS,
     }
 )
 
 __all__ = [
+    "DEPENDENCY_DEFAULT_SORT",
+    "DEPENDENCY_FIELDS",
+    "DependencyField",
     "ALL_SORT_FIELDS",
     "ENDPOINT_DEFAULT_SORT",
     "ENDPOINT_FIELDS",
