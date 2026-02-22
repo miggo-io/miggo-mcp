@@ -16,7 +16,9 @@
   "homepage": "https://github.com/miggo-io/miggo-public-mcp",
   "documentation": "https://github.com/miggo-io/miggo-public-mcp#readme",
   "support": "https://github.com/miggo-io/miggo-public-mcp/issues",
+  "icon": "icon.png",
   "license": "MIT",
+  "privacy_policies": ["https://www.miggo.io/privacy-policy"],
   "keywords": ["security", "vulnerabilities", "api", "services", "findings", "dependencies", "endpoints", "third-party"],
   "compatibility": {
     "platforms": ["darwin", "win32", "linux"]
