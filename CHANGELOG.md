@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/miggo-io/miggo-public-mcp/compare/v0.3.0...v0.4.0) (2026-02-22)
+
+
+### Features
+
+* prepare MCPB manifest for Claude Desktop Extension submission ([6bfecb1](https://github.com/miggo-io/miggo-public-mcp/commit/6bfecb144aa423550ea894cf44d1563894d7d484))
+
 ## [0.3.0](https://github.com/miggo-io/miggo-public-mcp/compare/v0.2.1...v0.3.0) (2025-11-04)
 
 

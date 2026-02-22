@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "miggo-public-mcp",
   "display_name": "Miggo Public API MCP Server",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP server for Miggo's public API - query services, endpoints, vulnerabilities, findings, dependencies, and third-party integrations",
   "long_description": "Connect Claude to your Miggo security environment. This extension provides 25 tools to explore and analyze your application security posture including services, endpoints, vulnerabilities, findings, dependencies, and third-party integrations. Use natural language to assess risk, investigate threats, onboard security teams, and prioritize remediation across your entire environment.",
   "author": {
@@ -18,10 +18,25 @@
   "support": "https://github.com/miggo-io/miggo-public-mcp/issues",
   "icon": "icon.png",
   "license": "MIT",
-  "privacy_policies": ["https://www.miggo.io/privacy-policy"],
-  "keywords": ["security", "vulnerabilities", "api", "services", "findings", "dependencies", "endpoints", "third-party"],
+  "privacy_policies": [
+    "https://www.miggo.io/privacy-policy"
+  ],
+  "keywords": [
+    "security",
+    "vulnerabilities",
+    "api",
+    "services",
+    "findings",
+    "dependencies",
+    "endpoints",
+    "third-party"
+  ],
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"]
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ]
   },
   "server": {
     "type": "binary",
@@ -38,31 +53,106 @@
     }
   },
   "tools": [
-    { "name": "services_search", "description": "Search for services in your Miggo environment" },
-    { "name": "services_get", "description": "Fetch a single service by ID" },
-    { "name": "services_count", "description": "Count services matching filters" },
-    { "name": "services_facets", "description": "Get possible field values for service filters" },
-    { "name": "endpoints_search", "description": "Search for endpoints in your Miggo environment" },
-    { "name": "endpoints_get", "description": "Fetch a single endpoint by ID" },
-    { "name": "endpoints_count", "description": "Count endpoints matching filters" },
-    { "name": "endpoints_facets", "description": "Get possible field values for endpoint filters" },
-    { "name": "third_parties_search", "description": "Search for third-party integrations" },
-    { "name": "third_parties_get", "description": "Fetch a single third-party by ID" },
-    { "name": "third_parties_count", "description": "Count third-parties matching filters" },
-    { "name": "third_parties_facets", "description": "Get possible field values for third-party filters" },
-    { "name": "findings_search", "description": "Search security findings (posture, drift, incidents)" },
-    { "name": "findings_get", "description": "Fetch a single finding by ID" },
-    { "name": "findings_count", "description": "Count findings matching filters" },
-    { "name": "findings_facets", "description": "Get possible field values for finding filters" },
-    { "name": "vulnerabilities_search", "description": "Search known vulnerabilities across services" },
-    { "name": "vulnerabilities_get", "description": "Fetch a single vulnerability by ID" },
-    { "name": "vulnerabilities_count", "description": "Count vulnerabilities matching filters" },
-    { "name": "vulnerabilities_facets", "description": "Get possible field values for vulnerability filters" },
-    { "name": "dependencies_search", "description": "Search software dependencies across services" },
-    { "name": "dependencies_get", "description": "Fetch a single dependency by ID" },
-    { "name": "dependencies_count", "description": "Count dependencies matching filters" },
-    { "name": "dependencies_facets", "description": "Get possible field values for dependency filters" },
-    { "name": "project_get", "description": "Get metadata for the authenticated project" }
+    {
+      "name": "services_search",
+      "description": "Search for services in your Miggo environment"
+    },
+    {
+      "name": "services_get",
+      "description": "Fetch a single service by ID"
+    },
+    {
+      "name": "services_count",
+      "description": "Count services matching filters"
+    },
+    {
+      "name": "services_facets",
+      "description": "Get possible field values for service filters"
+    },
+    {
+      "name": "endpoints_search",
+      "description": "Search for endpoints in your Miggo environment"
+    },
+    {
+      "name": "endpoints_get",
+      "description": "Fetch a single endpoint by ID"
+    },
+    {
+      "name": "endpoints_count",
+      "description": "Count endpoints matching filters"
+    },
+    {
+      "name": "endpoints_facets",
+      "description": "Get possible field values for endpoint filters"
+    },
+    {
+      "name": "third_parties_search",
+      "description": "Search for third-party integrations"
+    },
+    {
+      "name": "third_parties_get",
+      "description": "Fetch a single third-party by ID"
+    },
+    {
+      "name": "third_parties_count",
+      "description": "Count third-parties matching filters"
+    },
+    {
+      "name": "third_parties_facets",
+      "description": "Get possible field values for third-party filters"
+    },
+    {
+      "name": "findings_search",
+      "description": "Search security findings (posture, drift, incidents)"
+    },
+    {
+      "name": "findings_get",
+      "description": "Fetch a single finding by ID"
+    },
+    {
+      "name": "findings_count",
+      "description": "Count findings matching filters"
+    },
+    {
+      "name": "findings_facets",
+      "description": "Get possible field values for finding filters"
+    },
+    {
+      "name": "vulnerabilities_search",
+      "description": "Search known vulnerabilities across services"
+    },
+    {
+      "name": "vulnerabilities_get",
+      "description": "Fetch a single vulnerability by ID"
+    },
+    {
+      "name": "vulnerabilities_count",
+      "description": "Count vulnerabilities matching filters"
+    },
+    {
+      "name": "vulnerabilities_facets",
+      "description": "Get possible field values for vulnerability filters"
+    },
+    {
+      "name": "dependencies_search",
+      "description": "Search software dependencies across services"
+    },
+    {
+      "name": "dependencies_get",
+      "description": "Fetch a single dependency by ID"
+    },
+    {
+      "name": "dependencies_count",
+      "description": "Count dependencies matching filters"
+    },
+    {
+      "name": "dependencies_facets",
+      "description": "Get possible field values for dependency filters"
+    },
+    {
+      "name": "project_get",
+      "description": "Get metadata for the authenticated project"
+    }
   ],
   "user_config": {
     "miggo_api_token": {
