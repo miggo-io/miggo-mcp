@@ -105,9 +105,10 @@ def _build_bundle(*, keep_stage: bool) -> None:
     ):
         shutil.copy2(artifact, STAGE_DIR / artifact.name)
 
-    license_path = PROJECT_ROOT / "LICENSE"
-    if license_path.exists():
-        shutil.copy2(license_path, STAGE_DIR / license_path.name)
+    for optional in ("LICENSE", "icon.png"):
+        path = PROJECT_ROOT / optional
+        if path.exists():
+            shutil.copy2(path, STAGE_DIR / path.name)
 
     subprocess.run(
         ["npx", "@anthropic-ai/mcpb", "validate", "manifest.json"],
