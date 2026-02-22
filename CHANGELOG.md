@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/miggo-io/miggo-public-mcp/compare/v0.4.0...v0.4.1) (2026-02-22)
+
+
+### Bug Fixes
+
+* include icon.png in MCPB staging bundle ([6d6ad3f](https://github.com/miggo-io/miggo-public-mcp/commit/6d6ad3fd9c855d982da8c931d0f32f8fd73a657f))
+
 ## [0.4.0](https://github.com/miggo-io/miggo-public-mcp/compare/v0.3.0...v0.4.0) (2026-02-22)
 
 
