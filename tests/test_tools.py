@@ -48,7 +48,7 @@ class DummyClient:
 
 def make_toolset(settings, responses):
     dummy = DummyClient(settings, responses=responses)
-    server = SimpleNamespace(tool=lambda: (lambda func: func))
+    server = SimpleNamespace(tool=lambda **kwargs: (lambda func: func))
     tools = register_all_tools(server, settings, dummy)
     return tools, dummy
 

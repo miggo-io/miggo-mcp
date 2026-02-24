@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Annotated, Any
 
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 from pydantic import BeforeValidator, Field, WithJsonSchema
 
 from ..client import MiggoPublicClient
@@ -36,6 +37,13 @@ from ..query import compose_params
 from ..response import collection_response, scalar_response
 
 ToolCallable = Callable[..., Awaitable[dict[str, object]]]
+
+_READ_ONLY_ANNOTATIONS = ToolAnnotations(
+    readOnlyHint=True,
+    destructiveHint=False,
+    idempotentHint=True,
+    openWorldHint=True,
+)
 
 
 def _parse_skip(value: int | float | None) -> int | None:
@@ -107,7 +115,7 @@ def register_services_tools(
     """Register tools for Miggo services endpoints."""
     default_sort = _parse_default_sort(settings.default_sort)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def services_search(
         *,
         ids: Sequence[str] | None = None,
@@ -162,7 +170,7 @@ def register_services_tools(
         )
         return collection_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def services_get(
         service_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
@@ -191,7 +199,7 @@ def register_services_tools(
             response["meta"] = meta
         return response
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def services_count(
         *,
         ids: Sequence[str] | None = None,
@@ -225,7 +233,7 @@ def register_services_tools(
 
         return scalar_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def services_facets(
         *,
         fields: Sequence[ServiceField] | None = None,
@@ -284,7 +292,7 @@ def register_endpoints_tools(
 ) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for Miggo endpoint resources."""
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def endpoints_search(
         *,
         ids: Sequence[str] | None = None,
@@ -342,7 +350,7 @@ def register_endpoints_tools(
         )
         return collection_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def endpoints_get(
         endpoint_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
@@ -368,7 +376,7 @@ def register_endpoints_tools(
             response["meta"] = meta
         return response
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def endpoints_count(
         *,
         ids: Sequence[str] | None = None,
@@ -402,7 +410,7 @@ def register_endpoints_tools(
         payload = await client.get("/v1/endpoints/count", params=params)
         return scalar_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def endpoints_facets(
         *,
         fields: Sequence[EndpointField] | None = None,
@@ -465,7 +473,7 @@ def register_third_parties_tools(
 ) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for third-party relationship endpoints."""
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def third_parties_search(
         *,
         ids: Sequence[str] | None = None,
@@ -503,7 +511,7 @@ def register_third_parties_tools(
         )
         return collection_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def third_parties_get(
         third_party_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
@@ -529,7 +537,7 @@ def register_third_parties_tools(
             response["meta"] = meta
         return response
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def third_parties_count(
         *,
         ids: Sequence[str] | None = None,
@@ -551,7 +559,7 @@ def register_third_parties_tools(
         payload = await client.get("/v1/third-parties/count", params=params)
         return scalar_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def third_parties_facets(
         *,
         fields: Sequence[ThirdPartyField] | None = None,
@@ -601,7 +609,7 @@ def register_findings_tools(
 ) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for findings endpoints."""
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def findings_search(
         *,
         ids: Sequence[str] | None = None,
@@ -682,7 +690,7 @@ def register_findings_tools(
         )
         return collection_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def findings_get(
         finding_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
@@ -712,7 +720,7 @@ def register_findings_tools(
             response["meta"] = meta
         return response
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def findings_count(
         *,
         ids: Sequence[str] | None = None,
@@ -742,7 +750,7 @@ def register_findings_tools(
         payload = await client.get("/v1/findings/count", params=params)
         return scalar_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def findings_facets(
         *,
         fields: Sequence[FindingField] | None = None,
@@ -802,7 +810,7 @@ def register_vulnerabilities_tools(
 ) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for vulnerability endpoints."""
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def vulnerabilities_search(
         *,
         ids: Sequence[str] | None = None,
@@ -879,7 +887,7 @@ def register_vulnerabilities_tools(
         )
         return collection_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def vulnerabilities_get(
         vulnerability_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
@@ -909,7 +917,7 @@ def register_vulnerabilities_tools(
             response["meta"] = meta
         return response
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def vulnerabilities_count(
         *,
         ids: Sequence[str] | None = None,
@@ -955,7 +963,7 @@ def register_vulnerabilities_tools(
         payload = await client.get("/v1/vulnerabilities/count", params=params)
         return scalar_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def vulnerabilities_facets(
         *,
         fields: Sequence[VulnerabilityField] | None = None,
@@ -1031,7 +1039,7 @@ def register_dependencies_tools(
 ) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools for dependency endpoints."""
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def dependencies_search(
         *,
         names: Sequence[str] | None = None,
@@ -1095,7 +1103,7 @@ def register_dependencies_tools(
         )
         return collection_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def dependencies_get(
         dependency_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
@@ -1119,7 +1127,7 @@ def register_dependencies_tools(
             response["meta"] = meta
         return response
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def dependencies_count(
         *,
         names: Sequence[str] | None = None,
@@ -1159,7 +1167,7 @@ def register_dependencies_tools(
         payload = await client.get("/v1/dependencies/count", params=params)
         return scalar_response(payload)
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def dependencies_facets(
         *,
         fields: Sequence[DependencyField] | None = None,
@@ -1223,7 +1231,7 @@ def register_project_tools(
 ) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
     """Register tools that expose Miggo project metadata."""
 
-    @server.tool()
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def project_get() -> dict[str, object]:
         """Return metadata for the authenticated project.
 
