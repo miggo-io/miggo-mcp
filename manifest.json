@@ -49,6 +49,15 @@
       ],
       "env": {
         "MIGGO_PUBLIC_TOKEN": "${user_config.miggo_api_token}"
+      },
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}/miggo-public-mcp.exe",
+          "args": [],
+          "env": {
+            "MIGGO_PUBLIC_TOKEN": "${user_config.miggo_api_token}"
+          }
+        }
       }
     }
   },
