@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/miggo-io/miggo-public-mcp/compare/v0.4.1...v0.5.0) (2026-03-15)
+
+
+### Features
+
+* add tool annotations and clean up binary packaging ([#15](https://github.com/miggo-io/miggo-public-mcp/issues/15)) ([8f3fc46](https://github.com/miggo-io/miggo-public-mcp/commit/8f3fc4626620eae134fa40d5424f8caf13520739))
+
+
+### Bug Fixes
+
+* add Windows platform_overrides to mcp_config ([#17](https://github.com/miggo-io/miggo-public-mcp/issues/17)) ([254eaa6](https://github.com/miggo-io/miggo-public-mcp/commit/254eaa6bc5a3117a808258cb029e08515583fbec))
+* **config:** use correct JSONPath for uv.lock version bumping ([#18](https://github.com/miggo-io/miggo-public-mcp/issues/18)) ([d7632a1](https://github.com/miggo-io/miggo-public-mcp/commit/d7632a18a4944c255a4b0740d2c5fa21eff94408))
+
 ## [0.4.1](https://github.com/miggo-io/miggo-public-mcp/compare/v0.4.0...v0.4.1) (2026-02-22)
 
 
