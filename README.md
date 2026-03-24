@@ -18,10 +18,16 @@ Create an API token in the [Miggo Integrations portal](https://app.miggo.io/inte
 
 ### 2. Install
 
+Download the latest binary or bundle from the [releases page](https://github.com/miggo-io/miggo-mcp/releases).
+
+> **Note:**
+> - On macOS, move the binary out of the Downloads folder before configuring the path.
+> - On Windows, download the `.exe` variant and use the full path directly (no `bash -c` wrapper needed).
+
 <details>
 <summary><strong>Claude Desktop (one-click MCPB)</strong></summary>
 
-1. Download the latest `.mcpb` bundle from the [releases page](https://github.com/miggo-io/miggo-public-mcp/releases)
+1. Download the latest `.mcpb` bundle
 2. Open the file — Claude Desktop installs it automatically
 3. Enter your API token when prompted
 
@@ -32,7 +38,7 @@ Create an API token in the [Miggo Integrations portal](https://app.miggo.io/inte
 
 Click the badge to auto-install:
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=miggo-public-mcp&config=eyJjb21tYW5kIjoiYmFzaCIsImFyZ3MiOlsiLWMiLCInL3BhdGgvdG8vbWlnZ28tcHVibGljLW1jcCciXSwiZW52Ijp7Ik1JR0dPX1BVQkxJQ19UT0tFTiI6Im1pZ2dvLWFwaS10b2tlbiJ9fQ%3D%3D)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=miggo-mcp&config=eyJjb21tYW5kIjoiYmFzaCIsImFyZ3MiOlsiLWMiLCInL3BhdGgvdG8vbWlnZ28tbWNwJyJdLCJlbnYiOnsiTUlHR09fUFVCTElDX1RPS0VOIjoibWlnZ28tYXBpLXRva2VuIn19)
 
 Or manually add to your Cursor MCP settings:
 
@@ -41,7 +47,7 @@ Or manually add to your Cursor MCP settings:
   "mcpServers": {
     "miggo": {
       "command": "bash",
-      "args": ["-c", "'/path/to/miggo-public-mcp'"],
+      "args": ["-c", "'/path/to/miggo-mcp'"],
       "env": {
         "MIGGO_PUBLIC_TOKEN": "<your-token>"
       }
@@ -50,15 +56,12 @@ Or manually add to your Cursor MCP settings:
 }
 ```
 
-> **Note:** On macOS, move the binary out of the Downloads folder before configuring the path.
-
 </details>
 
 <details>
 <summary><strong>VS Code / GitHub Copilot</strong></summary>
 
-1. Download the latest binary from the [releases page](https://github.com/miggo-io/miggo-public-mcp/releases)
-2. Add to your VS Code `settings.json` (`Cmd+Shift+P` → "Preferences: Open User Settings (JSON)"):
+Add to your VS Code `settings.json` (`Cmd+Shift+P` → "Preferences: Open User Settings (JSON)"):
 
 ```json
 {
@@ -66,7 +69,7 @@ Or manually add to your Cursor MCP settings:
     "servers": {
       "miggo": {
         "command": "bash",
-        "args": ["-c", "'/path/to/miggo-public-mcp'"],
+        "args": ["-c", "'/path/to/miggo-mcp'"],
         "env": {
           "MIGGO_PUBLIC_TOKEN": "<your-token>"
         }
@@ -81,15 +84,14 @@ Or manually add to your Cursor MCP settings:
 <details>
 <summary><strong>JetBrains IDEs (IntelliJ, PyCharm, WebStorm, etc.)</strong></summary>
 
-1. Download the latest binary from the [releases page](https://github.com/miggo-io/miggo-public-mcp/releases)
-2. Open **Settings → Tools → AI Assistant → MCP Servers**
-3. Add a new server with the following configuration:
+1. Open **Settings → Tools → AI Assistant → MCP Servers**
+2. Add a new server with the following configuration:
 
 ```json
 {
   "miggo": {
     "command": "bash",
-    "args": ["-c", "'/path/to/miggo-public-mcp'"],
+    "args": ["-c", "'/path/to/miggo-mcp'"],
     "env": {
       "MIGGO_PUBLIC_TOKEN": "<your-token>"
     }
@@ -102,14 +104,14 @@ Or manually add to your Cursor MCP settings:
 <details>
 <summary><strong>Other MCP-compatible clients</strong></summary>
 
-Download the appropriate binary from the [releases page](https://github.com/miggo-io/miggo-public-mcp/releases) and point your client at it using the standard MCP stdio configuration:
+Point your client at the binary using the standard MCP stdio configuration:
 
 ```json
 {
   "mcpServers": {
     "miggo": {
       "command": "bash",
-      "args": ["-c", "'/path/to/miggo-public-mcp'"],
+      "args": ["-c", "'/path/to/miggo-mcp'"],
       "env": {
         "MIGGO_PUBLIC_TOKEN": "<your-token>"
       }
@@ -118,33 +120,19 @@ Download the appropriate binary from the [releases page](https://github.com/migg
 }
 ```
 
-> On Windows, use the `.exe` binary and set `"command"` to the full path of the executable directly (no `bash -c` wrapper needed).
-
 </details>
 
 ---
 
-## Try it — day-1 prompts
+## Example prompts
 
-Once installed, try these prompts to see what Miggo + your AI assistant can do:
+Once installed, try these to see what Miggo + your AI assistant can do:
 
 | Prompt | What it does |
 |--------|-------------|
 | _"Give me a security overview of my environment — what are the top risks I should address first?"_ | Pulls services, findings, and vulnerabilities to build a prioritized risk summary. |
 | _"Am I affected by CVE-2024-3094?"_ | Searches your dependencies and vulnerabilities for a specific CVE and shows which services are impacted. |
 | _"List all my internet-facing endpoints and flag any with critical findings."_ | Combines endpoint and findings data to surface your most exposed attack surface. |
-
----
-
-## How this differs from static scanners
-
-| | Miggo | Static scanners (SAST/SCA) |
-|---|---|---|
-| **What it sees** | Live runtime behavior — actual service communication, deployed dependencies, real API endpoints | Source code and declared dependencies at build time |
-| **Findings** | Based on what is actually running and reachable in production | Based on pattern matching against source code |
-| **Third-party risk** | Observes actual third-party integrations your services communicate with | Limited to declared dependency manifests |
-| **Context** | Full application topology — understands how services connect and where data flows | File-by-file analysis without cross-service visibility |
-| **Freshness** | Continuously updated from live environments | Point-in-time scan results |
 
 ---
 
@@ -180,7 +168,7 @@ uv run mcp dev ./run.py
 uv run python scripts/build.py
 ```
 
-This produces standalone binaries via [Pyfuze](https://github.com/TanixLu/pyfuze) (`miggo-public-mcp`, `miggo-public-mcp.exe`) and the MCP bundle (`miggo-public-mcp.mcpb`) in `dist/`. Pass `--help` for options.
+This produces standalone binaries via [Pyfuze](https://github.com/TanixLu/pyfuze) (`miggo-mcp`, `miggo-mcp.exe`) and the MCP bundle (`miggo-mcp.mcpb`) in `dist/`. Pass `--help` for options.
 
 ### Testing, formatting, linting
 
