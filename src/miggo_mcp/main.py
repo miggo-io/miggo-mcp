@@ -1,4 +1,4 @@
-"""Bootstrap entry points for the Miggo public FastMCP server."""
+"""Bootstrap entry points for the Miggo FastMCP server."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def build_server(settings: PublicServerSettings) -> FastMCP:
         finally:
             await client.aclose()
 
-    server = FastMCP("miggo-public-api", lifespan=lifespan)
+    server = FastMCP("miggo-api", lifespan=lifespan)
     register_all_tools(server, settings, client)
     return server
 

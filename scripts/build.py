@@ -1,5 +1,5 @@
 #!/usr/bin/env -S uv run
-"""Build Miggo Public MCP standalone binaries and MCPB bundle."""
+"""Build Miggo MCP standalone binaries and MCPB bundle."""
 
 from __future__ import annotations
 
@@ -17,10 +17,12 @@ DIST_DIR = PROJECT_ROOT / "dist"
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 UV_LOCK_PATH = PROJECT_ROOT / "uv.lock"
 SOURCE_ROOT = PROJECT_ROOT
-PYFUZE_OUTPUT = DIST_DIR / "miggo-public-mcp.com"
-PLAIN_OUTPUT = DIST_DIR / "miggo-public-mcp"
-WINDOWS_OUTPUT = DIST_DIR / "miggo-public-mcp.exe"
-BUNDLE_NAME = "miggo-public-mcp"
+# Pyfuze names the binary after the source directory, not pyproject.toml
+_PYFUZE_RAW = DIST_DIR / f"{PROJECT_ROOT.name}.com"
+PYFUZE_OUTPUT = DIST_DIR / "miggo-mcp.com"
+PLAIN_OUTPUT = DIST_DIR / "miggo-mcp"
+WINDOWS_OUTPUT = DIST_DIR / "miggo-mcp.exe"
+BUNDLE_NAME = "miggo-mcp"
 BUNDLE_OUTPUT = DIST_DIR / f"{BUNDLE_NAME}.mcpb"
 STAGE_DIR = PROJECT_ROOT / "build" / "mcpb_stage"
 
@@ -71,9 +73,12 @@ def _build_standalone() -> None:
     """Build the standalone binaries via Pyfuze."""
     _run_pyfuze()
 
-    if not PYFUZE_OUTPUT.exists():
-        msg = f"Expected Pyfuze output at {PYFUZE_OUTPUT}, but it was not created."
+    if not _PYFUZE_RAW.exists():
+        msg = f"Expected Pyfuze output at {_PYFUZE_RAW}, but it was not created."
         raise FileNotFoundError(msg)
+
+    if _PYFUZE_RAW != PYFUZE_OUTPUT:
+        shutil.move(_PYFUZE_RAW, PYFUZE_OUTPUT)
 
     _ensure_executable(PYFUZE_OUTPUT)
 

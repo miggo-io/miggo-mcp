@@ -1,12 +1,12 @@
 import pytest
 from pydantic import ValidationError
 
-from miggo_public_mcp.config import (
+from miggo_mcp.config import (
     DEFAULT_API_URL,
     DEFAULT_PAGE_SIZE,
     PublicServerSettings,
 )
-from miggo_public_mcp.constants import MAX_PAGE_SIZE
+from miggo_mcp.constants import MAX_PAGE_SIZE
 
 
 def test_settings_use_defaults_and_strip_slash():

@@ -1,0 +1,1 @@
+"""Miggo MCP server package."""
