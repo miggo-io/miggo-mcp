@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "miggo-public-mcp",
   "display_name": "Miggo Public API MCP Server",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "MCP server for Miggo's public API - query services, endpoints, vulnerabilities, findings, dependencies, and third-party integrations",
   "long_description": "Connect Claude to your Miggo security environment. This extension provides 25 tools to explore and analyze your application security posture including services, endpoints, vulnerabilities, findings, dependencies, and third-party integrations. Use natural language to assess risk, investigate threats, onboard security teams, and prioritize remediation across your entire environment.",
   "author": {

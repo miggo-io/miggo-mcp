@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/miggo-io/miggo-mcp/compare/v0.5.0...v0.5.1) (2026-03-24)
+
+
+### Documentation
+
+* rewrite README for public launch, add CONTRIBUTING.md ([#20](https://github.com/miggo-io/miggo-mcp/issues/20)) ([a56aac0](https://github.com/miggo-io/miggo-mcp/commit/a56aac023f188b44b5cd792bb8b68c52af603f2e))
+
 ## [0.5.0](https://github.com/miggo-io/miggo-public-mcp/compare/v0.4.1...v0.5.0) (2026-03-15)
 
 
