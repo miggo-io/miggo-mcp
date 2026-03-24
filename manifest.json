@@ -64,103 +64,103 @@
   "tools": [
     {
       "name": "services_search",
-      "description": "Search for services in your Miggo environment"
+      "description": "Search for services in your Miggo environment — use to inventory running microservices, find services by name or technology, or scope a risk review"
     },
     {
       "name": "services_get",
-      "description": "Fetch a single service by ID"
+      "description": "Fetch a single service by ID — use to drill into a specific service's details, dependencies, and risk score"
     },
     {
       "name": "services_count",
-      "description": "Count services matching filters"
+      "description": "Count services matching filters — use for quick summaries like 'how many Java services do we run?'"
     },
     {
       "name": "services_facets",
-      "description": "Get possible field values for service filters"
+      "description": "Get possible field values for service filters — use to discover available filter options before searching"
     },
     {
       "name": "endpoints_search",
-      "description": "Search for endpoints in your Miggo environment"
+      "description": "Search for API endpoints across your environment — use to find internet-facing routes, specific URL patterns, or endpoints by HTTP method"
     },
     {
       "name": "endpoints_get",
-      "description": "Fetch a single endpoint by ID"
+      "description": "Fetch a single endpoint by ID — use to inspect an endpoint's owning service, exposure level, and associated findings"
     },
     {
       "name": "endpoints_count",
-      "description": "Count endpoints matching filters"
+      "description": "Count endpoints matching filters — use for questions like 'how many public endpoints do we expose?'"
     },
     {
       "name": "endpoints_facets",
-      "description": "Get possible field values for endpoint filters"
+      "description": "Get possible field values for endpoint filters — use to discover available HTTP methods, services, or exposure types"
     },
     {
       "name": "third_parties_search",
-      "description": "Search for third-party integrations"
+      "description": "Search for third-party integrations your services communicate with — use to audit external dependencies and data flows"
     },
     {
       "name": "third_parties_get",
-      "description": "Fetch a single third-party by ID"
+      "description": "Fetch a single third-party integration by ID — use to review what services connect to a specific external provider"
     },
     {
       "name": "third_parties_count",
-      "description": "Count third-parties matching filters"
+      "description": "Count third-party integrations matching filters — use to answer 'how many external services do we depend on?'"
     },
     {
       "name": "third_parties_facets",
-      "description": "Get possible field values for third-party filters"
+      "description": "Get possible field values for third-party filters — use to discover known providers and integration types"
     },
     {
       "name": "findings_search",
-      "description": "Search security findings (posture, drift, incidents)"
+      "description": "Search security findings including posture issues, configuration drift, and incidents — use for risk assessments and compliance reviews"
     },
     {
       "name": "findings_get",
-      "description": "Fetch a single finding by ID"
+      "description": "Fetch a single finding by ID — use to get full details on a specific security issue including affected services and remediation context"
     },
     {
       "name": "findings_count",
-      "description": "Count findings matching filters"
+      "description": "Count findings matching filters — use for executive summaries like 'how many critical findings are open?'"
     },
     {
       "name": "findings_facets",
-      "description": "Get possible field values for finding filters"
+      "description": "Get possible field values for finding filters — use to see available severity levels, finding types, and statuses"
     },
     {
       "name": "vulnerabilities_search",
-      "description": "Search known vulnerabilities across services"
+      "description": "Search known vulnerabilities (CVEs) across your services — use to check exposure to specific CVEs or prioritize patching by severity"
     },
     {
       "name": "vulnerabilities_get",
-      "description": "Fetch a single vulnerability by ID"
+      "description": "Fetch a single vulnerability by ID — use to see which services and dependencies are affected by a specific CVE"
     },
     {
       "name": "vulnerabilities_count",
-      "description": "Count vulnerabilities matching filters"
+      "description": "Count vulnerabilities matching filters — use to answer 'how many critical unpatched CVEs do we have?'"
     },
     {
       "name": "vulnerabilities_facets",
-      "description": "Get possible field values for vulnerability filters"
+      "description": "Get possible field values for vulnerability filters — use to discover severity levels, statuses, and affected packages"
     },
     {
       "name": "dependencies_search",
-      "description": "Search software dependencies across services"
+      "description": "Search software dependencies across your services — use for supply-chain audits, license reviews, or finding which services use a specific package"
     },
     {
       "name": "dependencies_get",
-      "description": "Fetch a single dependency by ID"
+      "description": "Fetch a single dependency by ID — use to inspect a package's version, vulnerabilities, and which services depend on it"
     },
     {
       "name": "dependencies_count",
-      "description": "Count dependencies matching filters"
+      "description": "Count dependencies matching filters — use to answer 'how many vulnerable dependencies do we have?'"
     },
     {
       "name": "dependencies_facets",
-      "description": "Get possible field values for dependency filters"
+      "description": "Get possible field values for dependency filters — use to discover package ecosystems, vulnerability statuses, and versions in use"
     },
     {
       "name": "project_get",
-      "description": "Get metadata for the authenticated project"
+      "description": "Get metadata for the authenticated project — use to confirm which Miggo environment you're connected to and see project-level settings"
     }
   ],
   "user_config": {

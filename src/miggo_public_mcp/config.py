@@ -12,6 +12,8 @@ DEFAULT_PAGE_SIZE = 10
 DEFAULT_PAGE_OFFSET = 0
 DEFAULT_SORT = "risk,desc"
 DEFAULT_ACCESS_KEY_EXCHANGE_URL = "https://auth.miggo.io/v1/auth/accesskey/exchange"
+# This is a non-secret public client identifier used in the access-key
+# exchange flow — analogous to an OAuth client_id. It is safe to embed here.
 DEFAULT_ACCESS_KEY_ID = "P2UjsJwOFdIeUAtW0pGTJ5SeJAlq"
 
 
