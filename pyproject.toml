@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "miggo-public-mcp"
+name = "miggo-mcp"
 version = "0.5.1"
 description = "MCP server for Miggo's public API"
 requires-python = ">=3.12"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/miggo_public_mcp"]
+packages = ["src/miggo_mcp"]
 
 [dependency-groups]
 dev = [

@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from miggo_public_mcp.client import MiggoApiError
-from miggo_public_mcp.config import PublicServerSettings
-from miggo_public_mcp.constants import API_MAX_PAGE_SIZE
-from miggo_public_mcp.tools import register_all_tools
+from miggo_mcp.client import MiggoApiError
+from miggo_mcp.config import PublicServerSettings
+from miggo_mcp.constants import API_MAX_PAGE_SIZE
+from miggo_mcp.tools import register_all_tools
 
 
 def make_settings() -> PublicServerSettings:

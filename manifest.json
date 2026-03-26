@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "miggo-public-mcp",
+  "name": "miggo-mcp",
   "display_name": "Miggo Public API MCP Server",
   "version": "0.5.1",
   "description": "MCP server for Miggo's public API - query services, endpoints, vulnerabilities, findings, dependencies, and third-party integrations",
@@ -11,11 +11,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/miggo-io/miggo-public-mcp"
+    "url": "https://github.com/miggo-io/miggo-mcp"
   },
-  "homepage": "https://github.com/miggo-io/miggo-public-mcp",
-  "documentation": "https://github.com/miggo-io/miggo-public-mcp#readme",
-  "support": "https://github.com/miggo-io/miggo-public-mcp/issues",
+  "homepage": "https://github.com/miggo-io/miggo-mcp",
+  "documentation": "https://github.com/miggo-io/miggo-mcp#readme",
+  "support": "https://github.com/miggo-io/miggo-mcp/issues",
   "icon": "icon.png",
   "license": "MIT",
   "privacy_policies": [
@@ -40,19 +40,19 @@
   },
   "server": {
     "type": "binary",
-    "entry_point": "miggo-public-mcp",
+    "entry_point": "miggo-mcp",
     "mcp_config": {
       "command": "bash",
       "args": [
         "-c",
-        "'${__dirname}/miggo-public-mcp'"
+        "'${__dirname}/miggo-mcp'"
       ],
       "env": {
         "MIGGO_PUBLIC_TOKEN": "${user_config.miggo_api_token}"
       },
       "platform_overrides": {
         "win32": {
-          "command": "${__dirname}/miggo-public-mcp.exe",
+          "command": "${__dirname}/miggo-mcp.exe",
           "args": [],
           "env": {
             "MIGGO_PUBLIC_TOKEN": "${user_config.miggo_api_token}"

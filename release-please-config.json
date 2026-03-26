@@ -2,7 +2,7 @@
   "packages": {
     ".": {
       "release-type": "python",
-      "package-name": "miggo-public-mcp",
+      "package-name": "miggo-mcp",
       "include-component-in-tag": false,
       "extra-files": [
         {
@@ -18,7 +18,7 @@
         {
           "type": "toml",
           "path": "uv.lock",
-          "jsonpath": "$.package[?(@.name.value=='miggo-public-mcp')].version"
+          "jsonpath": "$.package[?(@.name.value=='miggo-mcp')].version"
         }
       ]
     }

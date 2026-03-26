@@ -1,6 +1,6 @@
 import pytest
 
-from miggo_public_mcp.query import compose_params, serialize_sort, serialize_where
+from miggo_mcp.query import compose_params, serialize_sort, serialize_where
 
 
 def test_serialize_where_multiple_values():

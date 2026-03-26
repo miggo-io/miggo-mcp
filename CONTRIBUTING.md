@@ -4,7 +4,7 @@ Thanks for your interest in contributing! This document covers the process for s
 
 ## Reporting issues
 
-- Search [existing issues](https://github.com/miggo-io/miggo-public-mcp/issues) before opening a new one.
+- Search [existing issues](https://github.com/miggo-io/miggo-mcp/issues) before opening a new one.
 - Include steps to reproduce, expected vs. actual behavior, and any relevant logs.
 
 ## Pull requests
