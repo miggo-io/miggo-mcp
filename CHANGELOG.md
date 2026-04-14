@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/miggo-io/miggo-mcp/compare/v0.5.1...v0.5.2) (2026-04-14)
+
+
+### Bug Fixes
+
+* update display name to Miggo ([#24](https://github.com/miggo-io/miggo-mcp/issues/24)) ([4d8cd37](https://github.com/miggo-io/miggo-mcp/commit/4d8cd3756a5875034a9d867eae849edac99d40da))
+
 ## [0.5.1](https://github.com/miggo-io/miggo-mcp/compare/v0.5.0...v0.5.1) (2026-03-24)
 
 
