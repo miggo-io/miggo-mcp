@@ -140,9 +140,8 @@ def _run_pyfuze() -> None:
     """Invoke Pyfuze with the standard project arguments."""
     cmd = [
         "pyfuze",
-        "--debug",
         "--mode",
-        "online",
+        "bundle",
         "--pyproject",
         str(PYPROJECT_PATH),
         "--uv-lock",

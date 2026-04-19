@@ -45,15 +45,18 @@
       "command": "bash",
       "args": [
         "-c",
-        "'${__dirname}/miggo-mcp'"
+        "chmod +x '${__dirname}/miggo-mcp' 2>/dev/null; '${__dirname}/miggo-mcp' < /dev/null > /dev/null 2>&1; exec '${__dirname}/miggo-mcp'"
       ],
       "env": {
         "MIGGO_PUBLIC_TOKEN": "${user_config.miggo_api_token}"
       },
       "platform_overrides": {
         "win32": {
-          "command": "${__dirname}/miggo-mcp.exe",
-          "args": [],
+          "command": "cmd",
+          "args": [
+            "/c",
+            "\"${__dirname}\\miggo-mcp.exe\" <nul >nul 2>&1 & \"${__dirname}\\miggo-mcp.exe\""
+          ],
           "env": {
             "MIGGO_PUBLIC_TOKEN": "${user_config.miggo_api_token}"
           }
