@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
 import stat
 import subprocess
@@ -174,7 +175,10 @@ def _run_pyfuze() -> None:
         "run.py",
         str(SOURCE_ROOT),
     ]
-    subprocess.run(cmd, cwd=PROJECT_ROOT, check=True)
+    # Pyfuze prints non-ASCII status characters (e.g. ✓) to stdout. On Windows the
+    # default console encoding (cp1252) can't encode them, so force UTF-8.
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
+    subprocess.run(cmd, cwd=PROJECT_ROOT, check=True, env=env)
 
 
 def _ensure_executable(path: Path) -> None:

@@ -22,31 +22,22 @@ import os
 import platform
 import subprocess
 import sys
+import time
 
 INIT_ID = 0
 LIST_ID = 1
 COUNT_ID = 2
 EXPECTED_PROTOCOL = "2025-06-18"
 MIN_TOOLS = 25
+PER_RESPONSE_TIMEOUT = 60
 
 
-def run_binary(
-    binary: str, stdin_payload: str, timeout: int, env: dict[str, str]
-) -> subprocess.CompletedProcess:
-    """Invoke the binary via the same launcher wrapper as manifest.json."""
+def launch_args(binary: str) -> tuple[str | list[str], bool]:
+    """Return (command, shell) matching manifest.json's launcher wrapper."""
     if platform.system() == "Windows":
         # shell=True on Windows prepends `cmd /c` and passes the string through
         # without list2cmdline escaping, so inner quotes survive for cmd to parse.
-        cmd: str | list[str] = f'"{binary}" <nul >nul 2>&1 & "{binary}"'
-        return subprocess.run(  # noqa: S602
-            cmd,
-            shell=True,
-            input=stdin_payload,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,
-        )
+        return f'"{binary}" <nul >nul 2>&1 & "{binary}"', True
     cmd = [
         "bash",
         "-c",
@@ -56,14 +47,7 @@ def run_binary(
             f"exec '{binary}'"
         ),
     ]
-    return subprocess.run(
-        cmd,
-        input=stdin_payload,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        env=env,
-    )
+    return cmd, False
 
 
 def fail(msg: str, *, stderr: str | None = None) -> int:
@@ -74,87 +58,164 @@ def fail(msg: str, *, stderr: str | None = None) -> int:
     return 1
 
 
+def read_response(
+    proc: subprocess.Popen,
+    target_id: int,
+    non_json: list[tuple[int, str]],
+    lineno_ref: list[int],
+) -> dict | None:
+    """Read stdout lines until a JSON object with `target_id` arrives."""
+    deadline = time.time() + PER_RESPONSE_TIMEOUT
+    assert proc.stdout is not None  # noqa: S101
+    while time.time() < deadline:
+        line = proc.stdout.readline()
+        if not line:
+            return None
+        lineno_ref[0] += 1
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            msg = json.loads(stripped)
+        except json.JSONDecodeError:
+            non_json.append((lineno_ref[0], stripped))
+            continue
+        if msg.get("id") == target_id:
+            return msg
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("binary", help="Path to the built miggo-mcp binary")
-    parser.add_argument("--timeout", type=int, default=120)
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="Total timeout (seconds) for the session shutdown after requests",
+    )
     args = parser.parse_args()
 
     token = os.environ.get("MIGGO_PUBLIC_TOKEN")
     if not token:
         return fail("MIGGO_PUBLIC_TOKEN not set")
 
-    requests = [
-        {
-            "jsonrpc": "2.0",
-            "id": INIT_ID,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": EXPECTED_PROTOCOL,
-                "capabilities": {},
-                "clientInfo": {"name": "smoke", "version": "0"},
-            },
+    init_req = {
+        "jsonrpc": "2.0",
+        "id": INIT_ID,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": EXPECTED_PROTOCOL,
+            "capabilities": {},
+            "clientInfo": {"name": "smoke", "version": "0"},
         },
-        {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}},
-        {"jsonrpc": "2.0", "id": LIST_ID, "method": "tools/list", "params": {}},
-        {
-            "jsonrpc": "2.0",
-            "id": COUNT_ID,
-            "method": "tools/call",
-            "params": {"name": "services_count", "arguments": {}},
-        },
-    ]
-    stdin_payload = "\n".join(json.dumps(r) for r in requests) + "\n"
+    }
+    initialized = {
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized",
+        "params": {},
+    }
+    list_req = {"jsonrpc": "2.0", "id": LIST_ID, "method": "tools/list", "params": {}}
+    count_req = {
+        "jsonrpc": "2.0",
+        "id": COUNT_ID,
+        "method": "tools/call",
+        "params": {"name": "services_count", "arguments": {}},
+    }
 
-    proc = run_binary(
-        args.binary,
-        stdin_payload,
-        args.timeout,
-        env={**os.environ, "MIGGO_PUBLIC_TOKEN": token},
+    cmd, shell = launch_args(args.binary)
+    env = {**os.environ, "MIGGO_PUBLIC_TOKEN": token}
+    proc = subprocess.Popen(  # noqa: S602 — shell=True is required for Windows cmd quoting
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        env=env,
+        shell=shell,
     )
+    assert proc.stdin is not None  # noqa: S101
 
+    non_json: list[tuple[int, str]] = []
+    lineno_ref = [0]
     responses: dict[int, dict] = {}
-    for lineno, line in enumerate(proc.stdout.splitlines(), 1):
-        if not line.strip():
-            continue
+
+    def send(msg: dict) -> None:
+        proc.stdin.write(json.dumps(msg) + "\n")  # type: ignore[union-attr]
+        proc.stdin.flush()  # type: ignore[union-attr]
+
+    stderr_output = ""
+    try:
+        send(init_req)
+        init = read_response(proc, INIT_ID, non_json, lineno_ref)
+        if init is None:
+            return fail("no response to initialize", stderr=_drain(proc))
+        responses[INIT_ID] = init
+
+        send(initialized)
+        send(list_req)
+        lst = read_response(proc, LIST_ID, non_json, lineno_ref)
+        if lst is None:
+            return fail("no response to tools/list", stderr=_drain(proc))
+        responses[LIST_ID] = lst
+
+        send(count_req)
+        cnt = read_response(proc, COUNT_ID, non_json, lineno_ref)
+        if cnt is None:
+            return fail("no response to services_count", stderr=_drain(proc))
+        responses[COUNT_ID] = cnt
+    finally:
         try:
-            msg = json.loads(line)
-        except json.JSONDecodeError:
-            return fail(
-                f"stdout line {lineno} is not valid JSON: {line[:200]!r}",
-                stderr=proc.stderr,
-            )
-        if "id" in msg:
-            responses[msg["id"]] = msg
+            proc.stdin.close()
+        except BrokenPipeError:
+            pass
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+        assert proc.stderr is not None  # noqa: S101
+        stderr_output = proc.stderr.read()
 
-    init = responses.get(INIT_ID)
-    if not init or init.get("result", {}).get("protocolVersion") != EXPECTED_PROTOCOL:
-        return fail(f"initialize handshake invalid: {init!r}", stderr=proc.stderr)
+    # Assertion 1: no non-JSON stdout lines
+    if non_json:
+        lineno, snippet = non_json[0]
+        return fail(
+            f"stdout line {lineno} is not valid JSON: {snippet[:200]!r}",
+            stderr=stderr_output,
+        )
 
-    lst = responses.get(LIST_ID)
-    tools = (lst or {}).get("result", {}).get("tools", [])
+    # Assertion 2: handshake
+    init = responses[INIT_ID]
+    if init.get("result", {}).get("protocolVersion") != EXPECTED_PROTOCOL:
+        return fail(f"initialize handshake invalid: {init!r}", stderr=stderr_output)
+
+    # Assertion 3: tools/list
+    lst = responses[LIST_ID]
+    tools = lst.get("result", {}).get("tools", [])
     names = {t["name"] for t in tools}
     if len(tools) < MIN_TOOLS or "services_count" not in names:
         return fail(
-            f"tools/list missing tools (got {len(tools)}, need >= {MIN_TOOLS}, services_count present: {'services_count' in names})",
-            stderr=proc.stderr,
+            f"tools/list missing tools (got {len(tools)}, need >= {MIN_TOOLS}, "
+            f"services_count present: {'services_count' in names})",
+            stderr=stderr_output,
         )
 
-    cnt = responses.get(COUNT_ID)
-    if not cnt:
-        return fail("no response to services_count", stderr=proc.stderr)
+    # Assertion 4: services_count returns a non-negative int
+    cnt = responses[COUNT_ID]
     if cnt.get("error"):
         return fail(
-            f"services_count JSON-RPC error: {cnt['error']}", stderr=proc.stderr
+            f"services_count JSON-RPC error: {cnt['error']}", stderr=stderr_output
         )
     result = cnt.get("result", {})
     if result.get("isError"):
-        return fail(f"services_count tool error: {result}", stderr=proc.stderr)
+        return fail(f"services_count tool error: {result}", stderr=stderr_output)
     data = result.get("structuredContent", {}).get("data")
     if not isinstance(data, int) or data < 0:
         return fail(
             f"services_count returned {data!r}, expected non-negative int",
-            stderr=proc.stderr,
+            stderr=stderr_output,
         )
 
     print(
@@ -162,6 +223,21 @@ def main() -> int:
         file=sys.stderr,
     )
     return 0
+
+
+def _drain(proc: subprocess.Popen) -> str:
+    """Best-effort stderr drain after a failure."""
+    if proc.stdin:
+        try:
+            proc.stdin.close()
+        except BrokenPipeError:
+            pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+    return proc.stderr.read() if proc.stderr else ""
 
 
 if __name__ == "__main__":
