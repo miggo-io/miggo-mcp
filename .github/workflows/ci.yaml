@@ -3,6 +3,9 @@ name: CI
 on:
   push:
 
+env:
+  HAS_MIGGO_TOKEN: ${{ secrets.MIGGO_PUBLIC_TOKEN != '' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,7 +24,7 @@ jobs:
   smoke-test:
     name: Smoke test (${{ matrix.os }})
     # Only run when the Miggo API secret is wired up
-    if: ${{ secrets.MIGGO_PUBLIC_TOKEN != '' }}
+    if: ${{ env.HAS_MIGGO_TOKEN == 'true' }}
     strategy:
       fail-fast: false
       matrix:
