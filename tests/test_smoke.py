@@ -1,15 +1,18 @@
 """End-to-end smoke test against the built standalone binary.
 
-Runs a full MCP session through the same launcher wrapper as ``manifest.json``,
-using the real ``mcp.client`` SDK. Asserts:
+Asserts:
 
 - initialize handshake returns the expected protocolVersion
 - tools/list reports >= 25 tools including ``services_count``
 - ``services_count`` returns a non-negative integer (auth + API round-trip)
 
-Implicit: if the launcher fails to silence Pyfuze's bundle extraction, the
-SDK errors out on the non-JSON line — so this also catches stdio pollution
-regressions.
+Spawns the binary through a launcher that mirrors ``manifest.json``: an
+inline ``bash -c`` wrapper on Unix, a temp ``.bat`` shim on Windows. The
+``.bat`` indirection sidesteps Python ``subprocess.list2cmdline`` escaping
+the inner double-quotes in a ``cmd /c "..."`` arg as ``\\"`` (cmd treats
+``\\`` literally and the launch fails). The launcher silences Pyfuze's
+first-run extraction output before invoking the real server, matching the
+production launcher used by Claude Desktop.
 
 Run locally::
 
@@ -20,6 +23,7 @@ from __future__ import annotations
 
 import os
 import platform
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -31,22 +35,28 @@ MIN_TOOLS = 25
 
 
 def _launcher_params(binary: str, token: str) -> StdioServerParameters:
-    """Match manifest.json's launcher wrapper for this OS."""
+    abs_binary = str(Path(binary).resolve())
     env = {**os.environ, "MIGGO_PUBLIC_TOKEN": token}
+
     if platform.system() == "Windows":
+        bat = Path(tempfile.gettempdir()) / "miggo-mcp-test-launcher.bat"
+        bat.write_text(
+            f'@echo off\r\n"{abs_binary}" <nul >nul 2>&1\r\n"{abs_binary}"\r\n'
+        )
         return StdioServerParameters(
             command="cmd",
-            args=["/c", f'"{binary}" <nul >nul 2>&1 & "{binary}"'],
+            args=["/c", str(bat)],
             env=env,
         )
+
     return StdioServerParameters(
         command="bash",
         args=[
             "-c",
             (
-                f"chmod +x '{binary}' 2>/dev/null; "
-                f"'{binary}' < /dev/null > /dev/null 2>&1; "
-                f"exec '{binary}'"
+                f"chmod +x '{abs_binary}' 2>/dev/null; "
+                f"'{abs_binary}' < /dev/null > /dev/null 2>&1; "
+                f"exec '{abs_binary}'"
             ),
         ],
         env=env,
@@ -63,7 +73,8 @@ async def test_full_mcp_session() -> None:
     binary = os.environ.get("MIGGO_MCP_BINARY", "dist/miggo-mcp")
     if not Path(binary).exists():
         pytest.skip(
-            f"binary not found at {binary} — run `uv run python scripts/build.py --skip-bundle` first"
+            f"binary not found at {binary} — "
+            "run `uv run python scripts/build.py --skip-bundle` first"
         )
 
     params = _launcher_params(binary, token)
