@@ -20,8 +20,8 @@ jobs:
 
   smoke-test:
     name: Smoke test (${{ matrix.os }})
-    # Only run when the Miggo API secret is wired up (skips fork PRs automatically).
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    # Only run when the Miggo API secret is wired up
+    if: ${{ secrets.MIGGO_PUBLIC_TOKEN != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -43,4 +43,5 @@ jobs:
       - name: Smoke test (init -> tools/list -> services_count)
         env:
           MIGGO_PUBLIC_TOKEN: ${{ secrets.MIGGO_PUBLIC_TOKEN }}
-        run: uv run python scripts/smoke_test.py ${{ matrix.binary }}
+          MIGGO_MCP_BINARY: ${{ matrix.binary }}
+        run: uv run pytest tests/test_smoke.py -m integration -v
