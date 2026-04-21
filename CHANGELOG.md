@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/miggo-io/miggo-mcp/compare/v0.5.2...v0.5.3) (2026-04-21)
+
+
+### Bug Fixes
+
+* eliminate MCP stdio parse errors on first install ([#26](https://github.com/miggo-io/miggo-mcp/issues/26)) ([0ee2db4](https://github.com/miggo-io/miggo-mcp/commit/0ee2db44ad08553636f2f3053f186e0b55438272))
+
 ## [0.5.2](https://github.com/miggo-io/miggo-mcp/compare/v0.5.1...v0.5.2) (2026-04-14)
 
 
