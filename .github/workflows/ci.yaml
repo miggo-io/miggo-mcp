@@ -17,3 +17,34 @@ jobs:
         run: uv run ruff check .
       - name: Test
         run: uv run pytest
+
+  smoke-test:
+    name: Smoke test (${{ matrix.os }})
+    # Skip on fork PRs — they don't get the MIGGO_PUBLIC_TOKEN secret. We can't
+    # check `secrets.X != ''` directly here; that context isn't allowed in
+    # job-level `if` or workflow-level `env`. Repo-ownership is the available
+    # proxy.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary: dist/miggo-mcp
+          - os: macos-latest
+            binary: dist/miggo-mcp
+          - os: windows-latest
+            binary: dist/miggo-mcp.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
+      - name: Sync dependencies
+        run: uv sync --all-extras
+      - name: Build standalone binary (skip mcpb bundle)
+        run: uv run python scripts/build.py --skip-bundle
+      - name: Smoke test (init -> tools/list -> services_count)
+        env:
+          MIGGO_PUBLIC_TOKEN: ${{ secrets.MIGGO_PUBLIC_TOKEN }}
+          MIGGO_MCP_BINARY: ${{ matrix.binary }}
+        run: uv run pytest tests/test_smoke.py -m integration -v

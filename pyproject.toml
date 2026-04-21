@@ -28,6 +28,11 @@ dev = [
     "pyfuze==2.7.2",
 ]
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: end-to-end test that requires MIGGO_PUBLIC_TOKEN and a built binary at MIGGO_MCP_BINARY (default dist/miggo-mcp)",
+]
+
 [tool.ruff.lint]
 select = [
     "A",   # builtins shadowing
