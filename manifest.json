@@ -1,5 +1,5 @@
 {
-  "manifest_version": "0.3",
+  "manifest_version": "0.4",
   "name": "miggo-mcp",
   "display_name": "Miggo",
   "version": "0.5.3",
@@ -36,31 +36,24 @@
       "darwin",
       "win32",
       "linux"
-    ]
+    ],
+    "runtimes": {
+      "python": ">=3.12"
+    }
   },
   "server": {
-    "type": "binary",
-    "entry_point": "miggo-mcp",
+    "type": "uv",
+    "entry_point": "run.py",
     "mcp_config": {
-      "command": "bash",
+      "command": "uv",
       "args": [
-        "-c",
-        "chmod +x '${__dirname}/miggo-mcp' 2>/dev/null; '${__dirname}/miggo-mcp' < /dev/null > /dev/null 2>&1; exec '${__dirname}/miggo-mcp'"
+        "run",
+        "--directory",
+        "${__dirname}",
+        "run.py"
       ],
       "env": {
         "MIGGO_PUBLIC_TOKEN": "${user_config.miggo_api_token}"
-      },
-      "platform_overrides": {
-        "win32": {
-          "command": "cmd",
-          "args": [
-            "/c",
-            "\"${__dirname}\\miggo-mcp.exe\" <nul >nul 2>&1 & \"${__dirname}\\miggo-mcp.exe\""
-          ],
-          "env": {
-            "MIGGO_PUBLIC_TOKEN": "${user_config.miggo_api_token}"
-          }
-        }
       }
     }
   },
