@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.4](https://github.com/miggo-io/miggo-mcp/compare/v0.5.3...v0.5.4) (2026-04-28)
+
+
+### Bug Fixes
+
+* migrate to MCPB type=uv runtime ([#28](https://github.com/miggo-io/miggo-mcp/issues/28)) ([f1cf508](https://github.com/miggo-io/miggo-mcp/commit/f1cf508b09f07e79932fa1a8460f701384fb5842))
+
 ## [0.5.3](https://github.com/miggo-io/miggo-mcp/compare/v0.5.2...v0.5.3) (2026-04-21)
 
 
