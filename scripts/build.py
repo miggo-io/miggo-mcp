@@ -1,12 +1,15 @@
 #!/usr/bin/env -S uv run
-"""Build Miggo MCP standalone binaries and MCPB bundle."""
+"""Build the Miggo MCP MCPB bundle.
+
+The bundle uses MCPB ``"server.type": "uv"``: Claude Desktop's bundled uv
+provisions the Python runtime from ``pyproject.toml`` + ``uv.lock`` on the
+target machine, so we ship source rather than a pre-built binary.
+"""
 
 from __future__ import annotations
 
 import hashlib
-import os
 import shutil
-import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -15,113 +18,62 @@ import click
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DIST_DIR = PROJECT_ROOT / "dist"
-PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
-UV_LOCK_PATH = PROJECT_ROOT / "uv.lock"
-SOURCE_ROOT = PROJECT_ROOT
-# Pyfuze names the binary after the source directory, not pyproject.toml
-_PYFUZE_RAW = DIST_DIR / f"{PROJECT_ROOT.name}.com"
-PYFUZE_OUTPUT = DIST_DIR / "miggo-mcp.com"
-PLAIN_OUTPUT = DIST_DIR / "miggo-mcp"
-WINDOWS_OUTPUT = DIST_DIR / "miggo-mcp.exe"
-BUNDLE_NAME = "miggo-mcp"
-BUNDLE_OUTPUT = DIST_DIR / f"{BUNDLE_NAME}.mcpb"
 STAGE_DIR = PROJECT_ROOT / "build" / "mcpb_stage"
+BUNDLE_OUTPUT = DIST_DIR / "miggo-mcp.mcpb"
+
+# Files copied verbatim from the repo root into the staged bundle.
+ROOT_FILES = (
+    "manifest.json",
+    "pyproject.toml",
+    "uv.lock",
+    "run.py",
+    "README.md",
+    "LICENSE",
+    "icon.png",
+)
+
+# Patterns excluded when copying ``src/`` into the staged bundle.
+SRC_IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo")
+
+MCPBIGNORE = """\
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+"""
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
-@click.option(
-    "--skip-standalone",
-    is_flag=True,
-    help="Skip rebuilding the Pyfuze standalone binaries.",
-)
-@click.option(
-    "--skip-bundle",
-    is_flag=True,
-    help="Skip packaging the MCPB bundle.",
-)
 @click.option(
     "--keep-stage",
     is_flag=True,
     help=f"Leave the staging directory intact at {STAGE_DIR}.",
 )
-def main(skip_standalone: bool, skip_bundle: bool, keep_stage: bool) -> None:
-    if skip_standalone and not PLAIN_OUTPUT.exists():
-        msg = "Standalone binary not found; cannot skip standalone build."
-        raise FileNotFoundError(msg)
-
-    DIST_DIR.mkdir(exist_ok=True)
-
-    if not skip_standalone:
-        _build_standalone()
-        print(
-            "Standalone build complete:\n"
-            f"  - {PLAIN_OUTPUT}\n"
-            f"  - {WINDOWS_OUTPUT}\n"
-            "SHA256 sums written alongside binaries."
-        )
-
-    if skip_bundle:
-        return
-
-    if not PLAIN_OUTPUT.exists():
-        msg = "Standalone binary missing; re-run without --skip-standalone or build first."
-        raise FileNotFoundError(msg)
-
-    _build_bundle(keep_stage=keep_stage)
-
-
-def _build_standalone() -> None:
-    """Build the standalone binaries via Pyfuze."""
-    _run_pyfuze()
-
-    if not _PYFUZE_RAW.exists():
-        msg = f"Expected Pyfuze output at {_PYFUZE_RAW}, but it was not created."
-        raise FileNotFoundError(msg)
-
-    if _PYFUZE_RAW != PYFUZE_OUTPUT:
-        shutil.move(_PYFUZE_RAW, PYFUZE_OUTPUT)
-
-    _ensure_executable(PYFUZE_OUTPUT)
-
-    shutil.copy2(PYFUZE_OUTPUT, PLAIN_OUTPUT)
-    _ensure_executable(PLAIN_OUTPUT)
-    shutil.move(PYFUZE_OUTPUT, WINDOWS_OUTPUT)
-
-    for target in (PLAIN_OUTPUT, WINDOWS_OUTPUT):
-        digest = _hash_file(target)
-        _write_digest_file(target, digest)
-
-
-def _build_bundle(*, keep_stage: bool) -> None:
-    """Package the standalone binaries into an MCPB archive."""
+def main(keep_stage: bool) -> None:
     if shutil.which("npx") is None:
         raise RuntimeError("npx is required to build the MCPB bundle.")
 
+    DIST_DIR.mkdir(exist_ok=True)
     if STAGE_DIR.exists():
         shutil.rmtree(STAGE_DIR)
     STAGE_DIR.mkdir(parents=True)
 
-    shutil.copy2(PLAIN_OUTPUT, STAGE_DIR / BUNDLE_NAME)
-    if WINDOWS_OUTPUT.exists():
-        shutil.copy2(WINDOWS_OUTPUT, STAGE_DIR / f"{BUNDLE_NAME}.exe")
+    for name in ROOT_FILES:
+        src = PROJECT_ROOT / name
+        if not src.exists():
+            raise FileNotFoundError(f"Required file missing: {src}")
+        shutil.copy2(src, STAGE_DIR / name)
 
-    for artifact in (
-        PROJECT_ROOT / "manifest.json",
-        PROJECT_ROOT / "README.md",
-    ):
-        shutil.copy2(artifact, STAGE_DIR / artifact.name)
+    shutil.copytree(PROJECT_ROOT / "src", STAGE_DIR / "src", ignore=SRC_IGNORE)
 
-    for optional in ("LICENSE", "icon.png"):
-        path = PROJECT_ROOT / optional
-        if path.exists():
-            shutil.copy2(path, STAGE_DIR / path.name)
+    (STAGE_DIR / ".mcpbignore").write_text(MCPBIGNORE, encoding="utf-8")
 
     subprocess.run(
         ["npx", "@anthropic-ai/mcpb", "validate", "manifest.json"],
         cwd=STAGE_DIR,
         check=True,
     )
-
     subprocess.run(
         ["npx", "@anthropic-ai/mcpb", "pack", ".", str(BUNDLE_OUTPUT)],
         cwd=STAGE_DIR,
@@ -132,63 +84,14 @@ def _build_bundle(*, keep_stage: bool) -> None:
         shutil.rmtree(STAGE_DIR)
 
     digest = _hash_file(BUNDLE_OUTPUT)
-    _write_digest_file(BUNDLE_OUTPUT, digest)
-
+    BUNDLE_OUTPUT.with_name(f"{BUNDLE_OUTPUT.name}.sha256").write_text(
+        f"{digest}  {BUNDLE_OUTPUT.name}\n",
+        encoding="utf-8",
+    )
     print(f"MCPB bundle created:\n  - {BUNDLE_OUTPUT}")
 
 
-def _run_pyfuze() -> None:
-    """Invoke Pyfuze with the standard project arguments."""
-    cmd = [
-        "pyfuze",
-        "--mode",
-        "bundle",
-        "--pyproject",
-        str(PYPROJECT_PATH),
-        "--uv-lock",
-        str(UV_LOCK_PATH),
-        "--exclude",
-        "tests/",
-        "--exclude",
-        "build/",
-        "--exclude",
-        "scripts/",
-        "--exclude",
-        "specs/",
-        "--exclude",
-        ".github/",
-        "--exclude",
-        ".vscode/",
-        "--exclude",
-        ".pre-commit-config.yaml",
-        "--exclude",
-        "models_classifiers/",
-        "--exclude",
-        "CHANGELOG.md",
-        "--exclude",
-        "release-please-config.json",
-        "--exclude",
-        "release-please-manifest.json",
-        "--exclude",
-        "CLAUDE.md",
-        "--entry",
-        "run.py",
-        str(SOURCE_ROOT),
-    ]
-    # Pyfuze prints non-ASCII status characters (e.g. ✓) to stdout. On Windows the
-    # default console encoding (cp1252) can't encode them, so force UTF-8.
-    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
-    subprocess.run(cmd, cwd=PROJECT_ROOT, check=True, env=env)
-
-
-def _ensure_executable(path: Path) -> None:
-    """Ensure the given file has the executable bit set for user/group/other."""
-    mode = path.stat().st_mode
-    path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-
 def _hash_file(path: Path) -> str:
-    """Return the SHA256 digest for a file."""
     hasher = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(8192), b""):
@@ -196,18 +99,9 @@ def _hash_file(path: Path) -> str:
     return hasher.hexdigest()
 
 
-def _write_digest_file(path: Path, digest: str) -> None:
-    target = path.with_name(f"{path.name}.sha256")
-    target.write_text(f"{digest}  {path.name}\n", encoding="utf-8")
-
-
 if __name__ == "__main__":
     try:
-        # Click commands are invoked without manually passing argv
         main()
     except subprocess.CalledProcessError as exc:
-        print(
-            f"Build step failed with exit code {exc.returncode}",
-            file=sys.stderr,
-        )
+        print(f"Build step failed with exit code {exc.returncode}", file=sys.stderr)
         raise

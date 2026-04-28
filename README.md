@@ -18,18 +18,14 @@ Create an API token in the [Miggo Integrations portal](https://app.miggo.io/inte
 
 ### 2. Install
 
-Download the latest binary or bundle from the [releases page](https://github.com/miggo-io/miggo-mcp/releases).
-
-> **Note:**
-> - On macOS, move the binary out of the Downloads folder before configuring the path.
-> - On Windows, download the `.exe` variant and use the full path directly (no `bash -c` wrapper needed).
-
 <details>
 <summary><strong>Claude Desktop (one-click MCPB)</strong></summary>
 
-1. Download the latest `.mcpb` bundle
+1. Download the latest `.mcpb` from the [releases page](https://github.com/miggo-io/miggo-mcp/releases)
 2. Open the file — Claude Desktop installs it automatically
 3. Enter your API token when prompted
+
+Claude Desktop ships its own [`uv`](https://docs.astral.sh/uv/) and provisions the Python runtime from the bundle's `pyproject.toml`. No system Python install required.
 
 </details>
 
@@ -38,7 +34,7 @@ Download the latest binary or bundle from the [releases page](https://github.com
 
 Click the badge to auto-install:
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=miggo-mcp&config=eyJjb21tYW5kIjoiYmFzaCIsImFyZ3MiOlsiLWMiLCInL3BhdGgvdG8vbWlnZ28tbWNwJyJdLCJlbnYiOnsiTUlHR09fUFVCTElDX1RPS0VOIjoibWlnZ28tYXBpLXRva2VuIn19)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=miggo-mcp&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyItLWZyb20iLCJnaXQraHR0cHM6Ly9naXRodWIuY29tL21pZ2dvLWlvL21pZ2dvLW1jcCIsIm1pZ2dvLW1jcCJdLCJlbnYiOnsiTUlHR09fUFVCTElDX1RPS0VOIjoibWlnZ28tYXBpLXRva2VuIn19)
 
 Or manually add to your Cursor MCP settings:
 
@@ -46,8 +42,8 @@ Or manually add to your Cursor MCP settings:
 {
   "mcpServers": {
     "miggo": {
-      "command": "bash",
-      "args": ["-c", "'/path/to/miggo-mcp'"],
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/miggo-io/miggo-mcp", "miggo-mcp"],
       "env": {
         "MIGGO_PUBLIC_TOKEN": "<your-token>"
       }
@@ -55,6 +51,8 @@ Or manually add to your Cursor MCP settings:
   }
 }
 ```
+
+Requires [`uv`](https://docs.astral.sh/uv/getting-started/installation/) on your `PATH`.
 
 </details>
 
@@ -68,8 +66,8 @@ Add to your VS Code `settings.json` (`Cmd+Shift+P` → "Preferences: Open User S
   "mcp": {
     "servers": {
       "miggo": {
-        "command": "bash",
-        "args": ["-c", "'/path/to/miggo-mcp'"],
+        "command": "uvx",
+        "args": ["--from", "git+https://github.com/miggo-io/miggo-mcp", "miggo-mcp"],
         "env": {
           "MIGGO_PUBLIC_TOKEN": "<your-token>"
         }
@@ -78,6 +76,8 @@ Add to your VS Code `settings.json` (`Cmd+Shift+P` → "Preferences: Open User S
   }
 }
 ```
+
+Requires [`uv`](https://docs.astral.sh/uv/getting-started/installation/) on your `PATH`.
 
 </details>
 
@@ -90,8 +90,8 @@ Add to your VS Code `settings.json` (`Cmd+Shift+P` → "Preferences: Open User S
 ```json
 {
   "miggo": {
-    "command": "bash",
-    "args": ["-c", "'/path/to/miggo-mcp'"],
+    "command": "uvx",
+    "args": ["--from", "git+https://github.com/miggo-io/miggo-mcp", "miggo-mcp"],
     "env": {
       "MIGGO_PUBLIC_TOKEN": "<your-token>"
     }
@@ -99,19 +99,21 @@ Add to your VS Code `settings.json` (`Cmd+Shift+P` → "Preferences: Open User S
 }
 ```
 
+Requires [`uv`](https://docs.astral.sh/uv/getting-started/installation/) on your `PATH`.
+
 </details>
 
 <details>
 <summary><strong>Other MCP-compatible clients</strong></summary>
 
-Point your client at the binary using the standard MCP stdio configuration:
+Point your client at `uvx` using the standard MCP stdio configuration:
 
 ```json
 {
   "mcpServers": {
     "miggo": {
-      "command": "bash",
-      "args": ["-c", "'/path/to/miggo-mcp'"],
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/miggo-io/miggo-mcp", "miggo-mcp"],
       "env": {
         "MIGGO_PUBLIC_TOKEN": "<your-token>"
       }
@@ -119,6 +121,8 @@ Point your client at the binary using the standard MCP stdio configuration:
   }
 }
 ```
+
+Requires [`uv`](https://docs.astral.sh/uv/getting-started/installation/) on your `PATH`.
 
 </details>
 
@@ -168,7 +172,7 @@ uv run mcp dev ./run.py
 uv run python scripts/build.py
 ```
 
-This produces standalone binaries via [Pyfuze](https://github.com/TanixLu/pyfuze) (`miggo-mcp`, `miggo-mcp.exe`) and the MCP bundle (`miggo-mcp.mcpb`) in `dist/`. Pass `--help` for options.
+Produces the MCPB bundle at `dist/miggo-mcp.mcpb` (a small zip containing `manifest.json`, `pyproject.toml`, `uv.lock`, `run.py`, and the `src/` tree). Claude Desktop's bundled `uv` provisions the runtime on the user's machine when the `.mcpb` is installed; no platform-specific binaries are produced. Pass `--help` for options.
 
 ### Testing, formatting, linting
 
