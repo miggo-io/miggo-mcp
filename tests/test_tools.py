@@ -402,6 +402,205 @@ async def test_project_get(settings):
 
 
 @pytest.mark.asyncio
+async def test_pulse_cves_search_filters_and_sort(settings):
+    responses = {
+        "/v1/pulse-cves/": {
+            "status": 200,
+            "data": [{"id": "pulse-1", "vulnId": "CVE-2024-1234"}],
+            "meta": {"query": {"sort": [["createdAt", "desc"], ["severity", "desc"]]}},
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["pulse_cves_search"](
+        severities=["critical", "high"],
+        change_types=["NEW_EXPLOIT"],
+        is_listed_in_kev=True,
+        take=5,
+    )
+
+    assert result["data"][0]["vulnId"] == "CVE-2024-1234"
+    path, params = dummy.calls[0]
+    assert path == "/v1/pulse-cves/"
+    assert params["where.severity"] == "critical,high"
+    assert params["where.changeType"] == "NEW_EXPLOIT"
+    assert params["where.isListedInKEV"] == "true"
+    assert params["take"] == "5"
+
+
+@pytest.mark.asyncio
+async def test_pulse_cves_get_uses_details_endpoint(settings):
+    responses = {
+        "/v1/pulse-cves/details": {
+            "status": 200,
+            "data": {
+                "id": "pulse-1",
+                "vulnId": "CVE-2024-1234",
+                "severity": "critical",
+            },
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["pulse_cves_get"]("pulse-1")
+
+    assert result["data"]["vulnId"] == "CVE-2024-1234"
+    path, params = dummy.calls[0]
+    assert path == "/v1/pulse-cves/details"
+    assert params == {"id": "pulse-1"}
+
+
+@pytest.mark.asyncio
+async def test_pulse_cves_get_raises_when_missing(settings):
+    responses = {"/v1/pulse-cves/details": {"status": 200, "data": None}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No Pulse CVE found"):
+        await tools["pulse_cves_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_pulse_cves_count(settings):
+    responses = {"/v1/pulse-cves/count": {"data": 42}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["pulse_cves_count"](severities=["critical"])
+
+    assert result["data"] == 42
+    _, params = dummy.calls[0]
+    assert params["where.severity"] == "critical"
+
+
+@pytest.mark.asyncio
+async def test_pulse_cves_facets(settings):
+    responses = {
+        "/v1/pulse-cves/facets": {
+            "status": 200,
+            "data": {"severity": ["critical", "high"]},
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["pulse_cves_facets"](
+        fields=["severity"],
+        search="log4shell",
+    )
+
+    assert result["data"]["severity"] == ["critical", "high"]
+    _, params = dummy.calls[0]
+    assert params["fields"] == "severity"
+    assert params["search"] == "log4shell"
+
+
+@pytest.mark.asyncio
+async def test_service_data_sources_search_requires_service_id_filter(settings):
+    responses = {
+        "/v1/services/data-sources/": {
+            "status": 200,
+            "data": [
+                {
+                    "id": "ds-1",
+                    "dbName": "customers",
+                    "hostname": "db.internal",
+                    "system": "postgres",
+                    "serviceId": "svc-1",
+                }
+            ],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["service_data_sources_search"](service_ids=["svc-1"])
+
+    assert result["data"][0]["dbName"] == "customers"
+    path, params = dummy.calls[0]
+    assert path == "/v1/services/data-sources/"
+    assert params["where.serviceId"] == "svc-1"
+
+
+@pytest.mark.asyncio
+async def test_service_cloud_resources_count(settings):
+    responses = {"/v1/services/cloud-resources/count": {"data": 5}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["service_cloud_resources_count"](service_ids=["svc-1"])
+
+    assert result["data"] == 5
+    _, params = dummy.calls[0]
+    assert params["where.serviceId"] == "svc-1"
+
+
+@pytest.mark.asyncio
+async def test_service_external_services_search(settings):
+    responses = {
+        "/v1/services/external-services/": {
+            "status": 200,
+            "data": [
+                {
+                    "id": "es-1",
+                    "domain": "api.stripe.com",
+                    "name": "Stripe",
+                    "serviceId": "svc-1",
+                }
+            ],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["service_external_services_search"](service_ids=["svc-1"])
+
+    assert result["data"][0]["domain"] == "api.stripe.com"
+    path, params = dummy.calls[0]
+    assert path == "/v1/services/external-services/"
+    assert params["where.serviceId"] == "svc-1"
+
+
+@pytest.mark.asyncio
+async def test_service_downstream_services_search(settings):
+    responses = {
+        "/v1/services/downstream-services/": {
+            "status": 200,
+            "data": [
+                {
+                    "id": "ds-svc-1",
+                    "method": "POST",
+                    "route": "/v1/charge",
+                    "serviceName": "billing-svc",
+                    "apiType": "http",
+                    "serviceId": "svc-1",
+                }
+            ],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["service_downstream_services_search"](service_ids=["svc-1"])
+
+    assert result["data"][0]["serviceName"] == "billing-svc"
+    path, params = dummy.calls[0]
+    assert path == "/v1/services/downstream-services/"
+    assert params["where.serviceId"] == "svc-1"
+
+
+@pytest.mark.asyncio
+async def test_service_data_sources_facets_returns_empty(settings):
+    responses = {
+        "/v1/services/data-sources/facets": {"status": 200, "data": {}},
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["service_data_sources_facets"](
+        fields=["dbName"],
+        service_ids=["svc-1"],
+    )
+
+    assert result["data"] == {}
+    _, params = dummy.calls[0]
+    assert params["fields"] == "dbName"
+    assert params["where.serviceId"] == "svc-1"
+
+
+@pytest.mark.asyncio
 async def test_services_list_number_parameters(settings):
     """Test that number parameters work correctly."""
     responses = {
