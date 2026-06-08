@@ -57,6 +57,9 @@ class MiggoPublicClient:
             self._client = client
             if self._client.headers.get("accept") is None:
                 self._client.headers.update(self._default_headers)
+        # set custom UA either way
+        self._client.headers["user-agent"] = _USER_AGENT
+
         self._owns_client = client is None
         self._session_jwt: str | None = None
         self._session_expires_at: datetime | None = None
