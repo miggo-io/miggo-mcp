@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections.abc import Mapping, MutableMapping
 from datetime import UTC, datetime, timedelta
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 import httpx
@@ -17,6 +18,13 @@ logger = logging.getLogger(__name__)
 _JWT_REFRESH_SKEW = timedelta(seconds=30)
 _MASK_PREFIX = 4
 _MASK_SUFFIX = 4
+
+try:
+    _VERSION = version("miggo-mcp")
+except PackageNotFoundError:
+    _VERSION = "0.0.0+local"
+
+_USER_AGENT = f"miggo-mcp/{_VERSION}"
 
 
 class MiggoApiError(RuntimeError):
@@ -34,7 +42,10 @@ class MiggoPublicClient:
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._settings = settings
-        self._default_headers = {"Accept": "application/json"}
+        self._default_headers = {
+            "Accept": "application/json",
+            "User-Agent": _USER_AGENT,
+        }
         api_base_url = str(settings.api_url)
         if client is None:
             self._client = httpx.AsyncClient(
