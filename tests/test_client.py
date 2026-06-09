@@ -1,6 +1,6 @@
 import pytest
 
-from miggo_mcp.client import MiggoApiError, MiggoPublicClient
+from miggo_mcp.client import _USER_AGENT, MiggoApiError, MiggoPublicClient
 from miggo_mcp.config import (
     DEFAULT_ACCESS_KEY_EXCHANGE_URL,
     DEFAULT_ACCESS_KEY_ID,
@@ -109,3 +109,25 @@ async def test_client_exchange_failure_raises(httpx_mock):
     async with MiggoPublicClient(settings) as client:
         with pytest.raises(MiggoApiError):
             await client.get("/v1/services/")
+
+
+@pytest.mark.asyncio
+async def test_client_sets_user_agent_on_outgoing_requests(httpx_mock):
+    httpx_mock.add_response(
+        method="POST",
+        url=DEFAULT_ACCESS_KEY_EXCHANGE_URL,
+        json={"sessionJwt": "jwt-token", "sessionExpiresAt": "2099-01-01T00:00:00Z"},
+    )
+    httpx_mock.add_response(json={"ok": True})
+
+    settings = make_settings()
+    async with MiggoPublicClient(settings) as client:
+        await client.get("/v1/anything")
+
+    requests = httpx_mock.get_requests()
+    assert requests, "no requests captured"
+    for req in requests:
+        assert req.headers.get("user-agent") == _USER_AGENT, (
+            f"request to {req.url} sent {req.headers.get('user-agent')!r}, "
+            f"expected {_USER_AGENT!r}"
+        )
