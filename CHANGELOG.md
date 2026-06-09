@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/miggo-io/miggo-mcp/compare/v0.5.4...v0.6.0) (2026-06-09)
+
+
+### Features
+
+* identify outbound requests to Miggo API via User-Agent (COP-754) ([#31](https://github.com/miggo-io/miggo-mcp/issues/31)) ([39798a4](https://github.com/miggo-io/miggo-mcp/commit/39798a401bf72eab255b0b63b8550a6f98a76273))
+
 ## [0.5.4](https://github.com/miggo-io/miggo-mcp/compare/v0.5.3...v0.5.4) (2026-04-28)
 
 
