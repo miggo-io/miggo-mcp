@@ -19,7 +19,19 @@ Create an API token in the [Miggo Integrations portal](https://app.miggo.io/inte
 ### 2. Install
 
 <details>
-<summary><strong>Claude Desktop (one-click MCPB)</strong></summary>
+<summary><strong>Claude Desktop</strong></summary>
+
+Two install paths.
+
+**A. From the in-app connector store**
+
+1. Open Claude Desktop and go to **Settings → Connectors**
+2. Find **Miggo** and click **Connect**
+3. Enter your API token when prompted
+
+![Miggo in Claude Desktop's connector store](claude-desktop-connector-store.png)
+
+**B. From the `.mcpb` bundle** (offline / pinned-version installs)
 
 1. Download the latest `.mcpb` from the [releases page](https://github.com/miggo-io/miggo-mcp/releases)
 2. Open the file — Claude Desktop installs it automatically
