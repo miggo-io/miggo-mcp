@@ -1407,7 +1407,7 @@ def register_pulse_cves_tools(
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def pulse_cves_facets(
         *,
-        fields: Sequence[PulseCVEField] | None = None,
+        fields: Annotated[Sequence[PulseCVEField], Field(min_length=1)],
         ids: Sequence[str] | None = None,
         vuln_ids: Sequence[str] | None = None,
         severities: Sequence[PulseCVESeverity] | None = None,
@@ -1423,6 +1423,9 @@ def register_pulse_cves_tools(
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> dict[str, object]:
         """Get possible field values for Pulse CVE objects.
+
+        ``fields`` is required by the public API — pass at least one field
+        name from ``PulseCVEField`` to enumerate its values.
 
         Returns:
         - data: object mapping fieldName -> list of string values
