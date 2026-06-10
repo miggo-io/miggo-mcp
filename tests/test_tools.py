@@ -583,7 +583,7 @@ async def test_service_downstream_services_search(settings):
 
 
 @pytest.mark.asyncio
-async def test_service_data_sources_facets_returns_empty(settings):
+async def test_service_data_sources_facets_sends_required_fields(settings):
     responses = {
         "/v1/services/data-sources/facets": {"status": 200, "data": {}},
     }
@@ -598,6 +598,14 @@ async def test_service_data_sources_facets_returns_empty(settings):
     _, params = dummy.calls[0]
     assert params["fields"] == "dbName"
     assert params["where.serviceId"] == "svc-1"
+
+
+@pytest.mark.asyncio
+async def test_service_data_sources_facets_requires_fields(settings):
+    """The public API marks fields as required — omitting it should error before HTTP."""
+    tools, _ = make_toolset(settings, {})
+    with pytest.raises(TypeError):
+        await tools["service_data_sources_facets"](service_ids=["svc-1"])
 
 
 @pytest.mark.asyncio
