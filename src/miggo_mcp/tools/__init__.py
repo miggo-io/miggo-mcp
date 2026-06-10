@@ -1612,7 +1612,7 @@ def register_service_downstream_tools(
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def service_cloud_resources_facets(
         *,
-        fields: Sequence[ServiceCloudResourceField] | None = None,
+        fields: Annotated[Sequence[ServiceCloudResourceField], Field(min_length=1)],
         service_ids: Sequence[str] | None = None,
         skip: Skip = None,
         take: Take = None,
@@ -1621,8 +1621,8 @@ def register_service_downstream_tools(
     ) -> dict[str, object]:
         """Get possible field values for service cloud resource objects.
 
-        Note: the public API currently returns an empty facets payload for
-        this endpoint; it is wrapped here for forward compatibility.
+        ``fields`` is required by the public API — pass at least one field
+        name from ``ServiceCloudResourceField`` to enumerate its values.
 
         Returns:
         - data: object mapping fieldName -> list of string values
