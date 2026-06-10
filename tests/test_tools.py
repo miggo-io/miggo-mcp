@@ -617,6 +617,14 @@ async def test_service_cloud_resources_facets_requires_fields(settings):
 
 
 @pytest.mark.asyncio
+async def test_service_external_services_facets_requires_fields(settings):
+    """The public API marks fields as required — omitting it should error before HTTP."""
+    tools, _ = make_toolset(settings, {})
+    with pytest.raises(TypeError):
+        await tools["service_external_services_facets"](service_ids=["svc-1"])
+
+
+@pytest.mark.asyncio
 async def test_services_list_number_parameters(settings):
     """Test that number parameters work correctly."""
     responses = {
