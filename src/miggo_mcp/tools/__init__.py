@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
@@ -1530,7 +1530,7 @@ def register_service_downstream_tools(
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def service_data_sources_facets(
         *,
-        fields: Annotated[Sequence[ServiceDataSourceField], Field(min_length=1)],
+        fields: Annotated[Sequence[Literal["serviceId"]], Field(min_length=1)],
         service_ids: Sequence[str] | None = None,
         skip: Skip = None,
         take: Take = None,
@@ -1539,8 +1539,9 @@ def register_service_downstream_tools(
     ) -> dict[str, object]:
         """Get possible field values for service data source objects.
 
-        ``fields`` is required by the public API — pass at least one field
-        name from ``ServiceDataSourceField`` to enumerate its values.
+        The public API restricts ``fields`` for this endpoint to the single
+        value ``"serviceId"`` (per the Miggo Beta API enum). Pass it as a
+        one-element list.
 
         Returns:
         - data: object mapping fieldName -> list of string values
@@ -1612,7 +1613,7 @@ def register_service_downstream_tools(
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def service_cloud_resources_facets(
         *,
-        fields: Annotated[Sequence[ServiceCloudResourceField], Field(min_length=1)],
+        fields: Annotated[Sequence[Literal["serviceId"]], Field(min_length=1)],
         service_ids: Sequence[str] | None = None,
         skip: Skip = None,
         take: Take = None,
@@ -1621,8 +1622,9 @@ def register_service_downstream_tools(
     ) -> dict[str, object]:
         """Get possible field values for service cloud resource objects.
 
-        ``fields`` is required by the public API — pass at least one field
-        name from ``ServiceCloudResourceField`` to enumerate its values.
+        The public API restricts ``fields`` for this endpoint to the single
+        value ``"serviceId"`` (per the Miggo Beta API enum). Pass it as a
+        one-element list.
 
         Returns:
         - data: object mapping fieldName -> list of string values
@@ -1698,7 +1700,7 @@ def register_service_downstream_tools(
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def service_external_services_facets(
         *,
-        fields: Annotated[Sequence[ServiceExternalServiceField], Field(min_length=1)],
+        fields: Annotated[Sequence[Literal["serviceId"]], Field(min_length=1)],
         service_ids: Sequence[str] | None = None,
         skip: Skip = None,
         take: Take = None,
@@ -1707,8 +1709,9 @@ def register_service_downstream_tools(
     ) -> dict[str, object]:
         """Get possible field values for service external service objects.
 
-        ``fields`` is required by the public API — pass at least one field
-        name from ``ServiceExternalServiceField`` to enumerate its values.
+        The public API restricts ``fields`` for this endpoint to the single
+        value ``"serviceId"`` (per the Miggo Beta API enum). Pass it as a
+        one-element list.
 
         Returns:
         - data: object mapping fieldName -> list of string values
@@ -1788,7 +1791,7 @@ def register_service_downstream_tools(
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def service_downstream_services_facets(
         *,
-        fields: Annotated[Sequence[ServiceDownstreamServiceField], Field(min_length=1)],
+        fields: Annotated[Sequence[Literal["serviceId"]], Field(min_length=1)],
         service_ids: Sequence[str] | None = None,
         skip: Skip = None,
         take: Take = None,
@@ -1799,8 +1802,9 @@ def register_service_downstream_tools(
     ) -> dict[str, object]:
         """Get possible field values for downstream service endpoint objects.
 
-        ``fields`` is required by the public API — pass at least one field
-        name from ``ServiceDownstreamServiceField`` to enumerate its values.
+        The public API restricts ``fields`` for this endpoint to the single
+        value ``"serviceId"`` (per the Miggo Beta API enum). Pass it as a
+        one-element list.
 
         Returns:
         - data: object mapping fieldName -> list of string values
