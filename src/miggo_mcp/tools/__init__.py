@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
@@ -17,14 +17,26 @@ from ..constants import (
     ENDPOINT_DEFAULT_SORT,
     FINDING_DEFAULT_SORT,
     MAX_PAGE_SIZE,
+    PULSE_CVE_DEFAULT_SORT,
+    SERVICE_CLOUD_RESOURCE_DEFAULT_SORT,
+    SERVICE_DATA_SOURCE_DEFAULT_SORT,
+    SERVICE_DOWNSTREAM_SERVICE_DEFAULT_SORT,
+    SERVICE_EXTERNAL_SERVICE_DEFAULT_SORT,
     THIRD_PARTY_DEFAULT_SORT,
     VULNERABILITY_DEFAULT_SORT,
+    CVEChangeType,
     DependencyField,
     EndpointField,
     FindingField,
     FindingSeverity,
     FindingStatus,
     FindingType,
+    PulseCVEField,
+    PulseCVESeverity,
+    ServiceCloudResourceField,
+    ServiceDataSourceField,
+    ServiceDownstreamServiceField,
+    ServiceExternalServiceField,
     ServiceField,
     SortDirection,
     ThirdPartyField,
@@ -104,6 +116,8 @@ def register_all_tools(
     tools.update(register_vulnerabilities_tools(server, settings, client))
     tools.update(register_dependencies_tools(server, settings, client))
     tools.update(register_project_tools(server, settings, client))
+    tools.update(register_pulse_cves_tools(server, settings, client))
+    tools.update(register_service_downstream_tools(server, settings, client))
     return tools
 
 
@@ -1247,6 +1261,586 @@ def register_project_tools(
     return {"project_get": project_get}
 
 
+def register_pulse_cves_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for Miggo Pulse CVE feed endpoints."""
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def pulse_cves_search(
+        *,
+        ids: Sequence[str] | None = None,
+        vuln_ids: Sequence[str] | None = None,
+        severities: Sequence[PulseCVESeverity] | None = None,
+        change_types: Sequence[CVEChangeType] | None = None,
+        is_listed_in_kev: bool | None = None,
+        has_vulnerable_functions: bool | None = None,
+        has_root_cause_analysis: bool | None = None,
+        has_virtual_patch: bool | None = None,
+        has_known_exploits: bool | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[PulseCVEField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search Miggo's Pulse CVE feed.
+
+        Purpose: Browse the global Pulse CVE feed (new and updated CVEs across
+        the security landscape). Distinct from `vulnerabilities_*`, which
+        scope to CVEs affecting the user's own services.
+
+        Data fields:
+        - id: pulse CVE ID
+        - vulnId: external vuln id (e.g. CVE-YYYY-NNNN)
+        - title: short title
+        - severity: critical | high | medium | low | info
+        - cvss: CVSS object (nullable)
+        - cvssScore: CVSS score string (nullable)
+        - epssScore: EPSS score string
+        - isListedInKEV: listed in CISA KEV catalog
+        - hasVulnerableFunctions: vulnerable functions identified
+        - hasRootCauseAnalysis: root-cause analysis available
+        - hasVirtualPatch: virtual patch available
+        - hasKnownExploits: known exploits exist
+        - changeType: NEW | UPDATED | NEW_EXPLOIT
+        - changeReason: free-text reason (nullable)
+        - publishedDate: original publication timestamp
+        - lastScan: last scan timestamp (nullable)
+        - isImpacted: whether the tenant is impacted
+        - createdAt: created timestamp
+        - updatedAt: updated timestamp
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            vulnId=vuln_ids,
+            severity=severities,
+            changeType=change_types,
+            isListedInKEV=is_listed_in_kev,
+            hasVulnerableFunctions=has_vulnerable_functions,
+            hasRootCauseAnalysis=has_root_cause_analysis,
+            hasVirtualPatch=has_virtual_patch,
+            hasKnownExploits=has_known_exploits,
+        )
+
+        sort_params = _resolve_sort(sort, PULSE_CVE_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/pulse-cves/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=sort_params,
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def pulse_cves_get(
+        pulse_cve_id: Annotated[str, Field(min_length=1)],
+    ) -> dict[str, object]:
+        """Fetch a single Pulse CVE with full details by id.
+
+        Backed by the public API ``/v1/pulse-cves/details?id=...`` endpoint,
+        which returns the richer CVE analysis payload (root-cause, virtual
+        patch, exploit metadata).
+
+        Returns:
+        - data: PulseCVEDetails object
+        - meta: optional metadata if present in API response
+        - status: optional HTTP status code from Miggo
+        """
+        payload = await client.get(
+            "/v1/pulse-cves/details",
+            params={"id": pulse_cve_id},
+        )
+
+        data = payload.get("data")
+        if data is None:
+            raise ValueError(f"No Pulse CVE found for id {pulse_cve_id!r}")
+
+        response: dict[str, object] = {"data": data}
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta:
+            response["meta"] = meta
+        status = payload.get("status")
+        if status is not None:
+            response["status"] = status
+        return response
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def pulse_cves_count(
+        *,
+        ids: Sequence[str] | None = None,
+        vuln_ids: Sequence[str] | None = None,
+        severities: Sequence[PulseCVESeverity] | None = None,
+        change_types: Sequence[CVEChangeType] | None = None,
+        is_listed_in_kev: bool | None = None,
+        has_vulnerable_functions: bool | None = None,
+        has_root_cause_analysis: bool | None = None,
+        has_virtual_patch: bool | None = None,
+        has_known_exploits: bool | None = None,
+    ) -> dict[str, object]:
+        """Count Pulse CVEs matching filters.
+
+        Purpose: Quickly assess result size without fetching records.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(
+            id=ids,
+            vulnId=vuln_ids,
+            severity=severities,
+            changeType=change_types,
+            isListedInKEV=is_listed_in_kev,
+            hasVulnerableFunctions=has_vulnerable_functions,
+            hasRootCauseAnalysis=has_root_cause_analysis,
+            hasVirtualPatch=has_virtual_patch,
+            hasKnownExploits=has_known_exploits,
+        )
+
+        params = compose_params(filters=filters)
+        payload = await client.get("/v1/pulse-cves/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def pulse_cves_facets(
+        *,
+        fields: Annotated[Sequence[PulseCVEField], Field(min_length=1)],
+        ids: Sequence[str] | None = None,
+        vuln_ids: Sequence[str] | None = None,
+        severities: Sequence[PulseCVESeverity] | None = None,
+        change_types: Sequence[CVEChangeType] | None = None,
+        is_listed_in_kev: bool | None = None,
+        has_vulnerable_functions: bool | None = None,
+        has_root_cause_analysis: bool | None = None,
+        has_virtual_patch: bool | None = None,
+        has_known_exploits: bool | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[PulseCVEField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for Pulse CVE objects.
+
+        ``fields`` is required by the public API — pass at least one field
+        name from ``PulseCVEField`` to enumerate its values.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            vulnId=vuln_ids,
+            severity=severities,
+            changeType=change_types,
+            isListedInKEV=is_listed_in_kev,
+            hasVulnerableFunctions=has_vulnerable_functions,
+            hasRootCauseAnalysis=has_root_cause_analysis,
+            hasVirtualPatch=has_virtual_patch,
+            hasKnownExploits=has_known_exploits,
+        )
+
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, PULSE_CVE_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get("/v1/pulse-cves/facets", params=params)
+        return collection_response(payload)
+
+    return {
+        "pulse_cves_search": pulse_cves_search,
+        "pulse_cves_get": pulse_cves_get,
+        "pulse_cves_count": pulse_cves_count,
+        "pulse_cves_facets": pulse_cves_facets,
+    }
+
+
+def register_service_downstream_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for service-downstream resources.
+
+    These tools answer "for a given service, what does it talk to / depend on":
+    data sources (databases), cloud resources, external services (third
+    parties), and downstream service endpoints. Every tool is filtered by
+    ``service_ids`` — the public API requires the filter and returns no
+    rows otherwise.
+    """
+
+    # --- service_data_sources ---------------------------------------------
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_data_sources_search(
+        *,
+        service_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[ServiceDataSourceField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search data sources (databases / datastores) used by a service.
+
+        Use to answer "what databases does service X read from / write to?".
+        Distinct from ``third_parties_*`` (external SaaS domains) and
+        ``service_cloud_resources_*`` (managed infra).
+
+        Data fields:
+        - id: data source ID
+        - dbName: database name
+        - hostname: host/endpoint
+        - system: database system (e.g. postgres, mysql, snowflake)
+        - serviceId: parent service ID
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(serviceId=service_ids)
+        sort_params = _resolve_sort(sort, SERVICE_DATA_SOURCE_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/services/data-sources/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=sort_params,
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_data_sources_count(
+        *,
+        service_ids: Sequence[str] | None = None,
+    ) -> dict[str, object]:
+        """Count data sources used by services matching the filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(serviceId=service_ids)
+        params = compose_params(filters=filters)
+        payload = await client.get("/v1/services/data-sources/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_data_sources_facets(
+        *,
+        fields: Annotated[Sequence[Literal["serviceId"]], Field(min_length=1)],
+        service_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[ServiceDataSourceField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for service data source objects.
+
+        The public API restricts ``fields`` for this endpoint to the single
+        value ``"serviceId"`` (per the Miggo Beta API enum). Pass it as a
+        one-element list.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(serviceId=service_ids)
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, SERVICE_DATA_SOURCE_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get("/v1/services/data-sources/facets", params=params)
+        return collection_response(payload)
+
+    # --- service_cloud_resources ------------------------------------------
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_cloud_resources_search(
+        *,
+        service_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[ServiceCloudResourceField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search cloud resources (AWS/GCP/Azure) used by a service.
+
+        Distinct from ``service_data_sources_*`` (databases) and
+        ``service_external_services_*`` (third-party SaaS domains).
+
+        Data fields:
+        - id: cloud resource ID
+        - name: resource name
+        - provider: cloud provider (e.g. aws, gcp, azure) (nullable)
+        - region: cloud region
+        - type: resource type (e.g. s3-bucket, sqs-queue) (nullable)
+        - serviceId: parent service ID
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(serviceId=service_ids)
+        sort_params = _resolve_sort(sort, SERVICE_CLOUD_RESOURCE_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/services/cloud-resources/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=sort_params,
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_cloud_resources_count(
+        *,
+        service_ids: Sequence[str] | None = None,
+    ) -> dict[str, object]:
+        """Count cloud resources used by services matching the filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(serviceId=service_ids)
+        params = compose_params(filters=filters)
+        payload = await client.get("/v1/services/cloud-resources/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_cloud_resources_facets(
+        *,
+        fields: Annotated[Sequence[Literal["serviceId"]], Field(min_length=1)],
+        service_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[ServiceCloudResourceField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for service cloud resource objects.
+
+        The public API restricts ``fields`` for this endpoint to the single
+        value ``"serviceId"`` (per the Miggo Beta API enum). Pass it as a
+        one-element list.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(serviceId=service_ids)
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, SERVICE_CLOUD_RESOURCE_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get(
+            "/v1/services/cloud-resources/facets",
+            params=params,
+        )
+        return collection_response(payload)
+
+    # --- service_external_services ----------------------------------------
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_external_services_search(
+        *,
+        service_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[ServiceExternalServiceField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search external services / third-party SaaS that a service calls.
+
+        Use to answer "what third-party services does service X talk to?".
+
+        Data fields:
+        - id: external service ID
+        - domain: external domain (e.g. api.stripe.com) (nullable)
+        - name: external service name (nullable)
+        - iconName: icon hint (nullable)
+        - serviceId: parent service ID
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(serviceId=service_ids)
+        sort_params = _resolve_sort(sort, SERVICE_EXTERNAL_SERVICE_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/services/external-services/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=sort_params,
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_external_services_count(
+        *,
+        service_ids: Sequence[str] | None = None,
+    ) -> dict[str, object]:
+        """Count external services called by services matching the filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(serviceId=service_ids)
+        params = compose_params(filters=filters)
+        payload = await client.get(
+            "/v1/services/external-services/count",
+            params=params,
+        )
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_external_services_facets(
+        *,
+        fields: Annotated[Sequence[Literal["serviceId"]], Field(min_length=1)],
+        service_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[ServiceExternalServiceField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for service external service objects.
+
+        The public API restricts ``fields`` for this endpoint to the single
+        value ``"serviceId"`` (per the Miggo Beta API enum). Pass it as a
+        one-element list.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(serviceId=service_ids)
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, SERVICE_EXTERNAL_SERVICE_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get(
+            "/v1/services/external-services/facets",
+            params=params,
+        )
+        return collection_response(payload)
+
+    # --- service_downstream_services --------------------------------------
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_downstream_services_search(
+        *,
+        service_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: (
+            Sequence[tuple[ServiceDownstreamServiceField, SortDirection]] | None
+        ) = None,
+    ) -> dict[str, object]:
+        """Search downstream internal service endpoints called by a service.
+
+        Use to map service-to-service calls inside the user's environment.
+        Distinct from ``service_external_services_*`` (external SaaS).
+
+        Data fields:
+        - id: downstream endpoint ID
+        - method: HTTP method (e.g. GET, POST) (nullable)
+        - route: path/route pattern
+        - serviceName: name of the downstream service (nullable)
+        - apiType: API style (e.g. http, grpc, graphql) (nullable)
+        - serviceId: parent (calling) service ID
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(serviceId=service_ids)
+        sort_params = _resolve_sort(sort, SERVICE_DOWNSTREAM_SERVICE_DEFAULT_SORT)
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/services/downstream-services/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=sort_params,
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_downstream_services_count(
+        *,
+        service_ids: Sequence[str] | None = None,
+    ) -> dict[str, object]:
+        """Count downstream service endpoints called by services matching the filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(serviceId=service_ids)
+        params = compose_params(filters=filters)
+        payload = await client.get(
+            "/v1/services/downstream-services/count",
+            params=params,
+        )
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_downstream_services_facets(
+        *,
+        fields: Annotated[Sequence[Literal["serviceId"]], Field(min_length=1)],
+        service_ids: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: (
+            Sequence[tuple[ServiceDownstreamServiceField, SortDirection]] | None
+        ) = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for downstream service endpoint objects.
+
+        The public API restricts ``fields`` for this endpoint to the single
+        value ``"serviceId"`` (per the Miggo Beta API enum). Pass it as a
+        one-element list.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(serviceId=service_ids)
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, SERVICE_DOWNSTREAM_SERVICE_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get(
+            "/v1/services/downstream-services/facets",
+            params=params,
+        )
+        return collection_response(payload)
+
+    return {
+        "service_data_sources_search": service_data_sources_search,
+        "service_data_sources_count": service_data_sources_count,
+        "service_data_sources_facets": service_data_sources_facets,
+        "service_cloud_resources_search": service_cloud_resources_search,
+        "service_cloud_resources_count": service_cloud_resources_count,
+        "service_cloud_resources_facets": service_cloud_resources_facets,
+        "service_external_services_search": service_external_services_search,
+        "service_external_services_count": service_external_services_count,
+        "service_external_services_facets": service_external_services_facets,
+        "service_downstream_services_search": service_downstream_services_search,
+        "service_downstream_services_count": service_downstream_services_count,
+        "service_downstream_services_facets": service_downstream_services_facets,
+    }
+
+
 def _build_where_filters(**field_values: object) -> dict[str, list[object]]:
     """Translate keyword arguments into Miggo ``where`` filters."""
     filters: dict[str, list[object]] = {}
@@ -1407,6 +2001,8 @@ __all__ = [
     "register_findings_tools",
     "register_dependencies_tools",
     "register_project_tools",
+    "register_pulse_cves_tools",
+    "register_service_downstream_tools",
     "register_services_tools",
     "register_third_parties_tools",
     "register_vulnerabilities_tools",
