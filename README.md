@@ -149,6 +149,7 @@ Once installed, try these to see what Miggo + your AI assistant can do:
 | _"Give me a security overview of my environment — what are the top risks I should address first?"_ | Pulls services, findings, and vulnerabilities to build a prioritized risk summary. |
 | _"Am I affected by CVE-2024-3094?"_ | Searches your dependencies and vulnerabilities for a specific CVE and shows which services are impacted. |
 | _"List all my internet-facing endpoints and flag any with critical findings."_ | Combines endpoint and findings data to surface your most exposed attack surface. |
+| _"What does the checkout service connect to downstream — other services, databases, cloud resources, third parties?"_ | Maps a single service's downstream connections so you can reason about blast radius. |
 
 ---
 

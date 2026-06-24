@@ -204,6 +204,24 @@ VULNERABILITY_FIELDS = [
 
 VULNERABILITY_DEFAULT_SORT = [("cvss", "desc")]
 
+# Service downstream sub-resources. All are filtered by a single required
+# serviceId and share the get/count pagination shape, so one tool dispatches
+# over them by ``kind`` rather than four near-identical tool families.
+DownstreamKind = Literal[
+    "downstream-services",
+    "cloud-resources",
+    "data-sources",
+    "external-services",
+]
+
+# kind -> (api path, default sort pairs)
+DOWNSTREAM_KINDS: dict[str, tuple[str, list[tuple[str, str]]]] = {
+    "downstream-services": ("/v1/services/downstream-services", [("serviceName", "asc")]),
+    "cloud-resources": ("/v1/services/cloud-resources", [("name", "asc")]),
+    "data-sources": ("/v1/services/data-sources", [("dbName", "asc")]),
+    "external-services": ("/v1/services/external-services", [("domain", "asc")]),
+}
+
 ALL_SORT_FIELDS = sorted(
     {
         *SERVICES_FIELDS,
@@ -219,6 +237,8 @@ __all__ = [
     "DEPENDENCY_DEFAULT_SORT",
     "DEPENDENCY_FIELDS",
     "DependencyField",
+    "DOWNSTREAM_KINDS",
+    "DownstreamKind",
     "ALL_SORT_FIELDS",
     "ENDPOINT_DEFAULT_SORT",
     "ENDPOINT_FIELDS",

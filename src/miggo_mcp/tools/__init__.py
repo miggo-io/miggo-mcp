@@ -14,12 +14,14 @@ from ..config import PublicServerSettings
 from ..constants import (
     API_MAX_PAGE_SIZE,
     DEPENDENCY_DEFAULT_SORT,
+    DOWNSTREAM_KINDS,
     ENDPOINT_DEFAULT_SORT,
     FINDING_DEFAULT_SORT,
     MAX_PAGE_SIZE,
     THIRD_PARTY_DEFAULT_SORT,
     VULNERABILITY_DEFAULT_SORT,
     DependencyField,
+    DownstreamKind,
     EndpointField,
     FindingField,
     FindingSeverity,
@@ -103,6 +105,7 @@ def register_all_tools(
     tools.update(register_findings_tools(server, settings, client))
     tools.update(register_vulnerabilities_tools(server, settings, client))
     tools.update(register_dependencies_tools(server, settings, client))
+    tools.update(register_downstream_tools(server, settings, client))
     tools.update(register_project_tools(server, settings, client))
     return tools
 
@@ -1224,6 +1227,77 @@ def register_dependencies_tools(
     }
 
 
+def register_downstream_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for a service's downstream connections."""
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_downstream_search(
+        service_id: Annotated[str, Field(min_length=1)],
+        kind: DownstreamKind,
+        *,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[str, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """List what a single service connects to downstream.
+
+        Answers "what does this service depend on / talk to" for one
+        ``service_id``. Pick the connection ``kind``:
+
+        - downstream-services: other services it calls. Fields: id, method,
+          route, serviceName, apiType, cluster, namespaces, deploymentName,
+          isFallback (true = reachable but no endpoint-level detail).
+          Sortable: serviceName, method, route, apiType.
+        - cloud-resources: cloud resources it uses. Fields: id, name, provider,
+          region, type. Sortable: name, provider, region, type.
+        - data-sources: databases it reads/writes. Fields: id, dbName, hostname,
+          system. Sortable: dbName, hostname, system.
+        - external-services: third-party/SaaS endpoints it calls. Fields: id,
+          domain, name, iconName. Sortable: domain, name.
+
+        Returns:
+        - data: list of connection objects for the chosen kind
+        - meta: query metadata (sort/paging)
+        """
+        path, default_sort = DOWNSTREAM_KINDS[kind]
+        paging = _resolve_paging(skip, take, settings)
+        payload = await _fetch_collection_pages(
+            client,
+            f"{path}/",
+            filters={"serviceId": [service_id]},
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, default_sort),
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def service_downstream_count(
+        service_id: Annotated[str, Field(min_length=1)],
+        kind: DownstreamKind,
+    ) -> dict[str, object]:
+        """Count a service's downstream connections of the given kind.
+
+        See ``service_downstream_search`` for the available kinds.
+
+        Returns:
+        - data: integer total count
+        """
+        path, _ = DOWNSTREAM_KINDS[kind]
+        params = compose_params(filters={"serviceId": [service_id]})
+        payload = await client.get(f"{path}/count", params=params)
+        return scalar_response(payload)
+
+    return {
+        "service_downstream_search": service_downstream_search,
+        "service_downstream_count": service_downstream_count,
+    }
+
+
 def register_project_tools(
     server: FastMCP,
     settings: PublicServerSettings,
@@ -1403,6 +1477,7 @@ def _parse_default_sort(value: str | None) -> list[tuple[str, str]]:
 
 __all__ = [
     "register_all_tools",
+    "register_downstream_tools",
     "register_endpoints_tools",
     "register_findings_tools",
     "register_dependencies_tools",
