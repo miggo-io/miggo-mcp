@@ -216,7 +216,10 @@ DownstreamKind = Literal[
 
 # kind -> (api path, default sort pairs)
 DOWNSTREAM_KINDS: dict[str, tuple[str, list[tuple[str, str]]]] = {
-    "downstream-services": ("/v1/services/downstream-services", [("serviceName", "asc")]),
+    "downstream-services": (
+        "/v1/services/downstream-services",
+        [("serviceName", "asc")],
+    ),
     "cloud-resources": ("/v1/services/cloud-resources", [("name", "asc")]),
     "data-sources": ("/v1/services/data-sources", [("dbName", "asc")]),
     "external-services": ("/v1/services/external-services", [("domain", "asc")]),
