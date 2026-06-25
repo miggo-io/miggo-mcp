@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/miggo-io/miggo-mcp/compare/v0.6.0...v0.7.0) (2026-06-25)
+
+
+### Features
+
+* COP-737 add service downstream tools ([#33](https://github.com/miggo-io/miggo-mcp/issues/33)) ([fc90161](https://github.com/miggo-io/miggo-mcp/commit/fc90161ad5041cea89e230bcf5cd386fa51fa2cc))
+
 ## [0.6.0](https://github.com/miggo-io/miggo-mcp/compare/v0.5.4...v0.6.0) (2026-06-09)
 
 
