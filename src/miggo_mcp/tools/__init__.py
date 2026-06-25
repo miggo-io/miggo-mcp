@@ -22,6 +22,7 @@ from ..constants import (
     VULNERABILITY_DEFAULT_SORT,
     DependencyField,
     DownstreamKind,
+    DownstreamSortField,
     EndpointField,
     FindingField,
     FindingSeverity,
@@ -1241,7 +1242,7 @@ def register_downstream_tools(
         *,
         skip: Skip = None,
         take: Take = None,
-        sort: Sequence[tuple[str, SortDirection]] | None = None,
+        sort: Sequence[tuple[DownstreamSortField, SortDirection]] | None = None,
     ) -> dict[str, object]:
         """List what a single service connects to downstream.
 
@@ -1263,7 +1264,14 @@ def register_downstream_tools(
         - data: list of connection objects for the chosen kind
         - meta: query metadata (sort/paging)
         """
-        path, default_sort = DOWNSTREAM_KINDS[kind]
+        path, default_sort, sortable = DOWNSTREAM_KINDS[kind]
+        if sort:
+            invalid = sorted({field for field, _ in sort if field not in sortable})
+            if invalid:
+                raise ValueError(
+                    f"sort fields {invalid} are not valid for kind {kind!r}; "
+                    f"valid fields: {sorted(sortable)}"
+                )
         paging = _resolve_paging(skip, take, settings)
         payload = await _fetch_collection_pages(
             client,
@@ -1287,7 +1295,7 @@ def register_downstream_tools(
         Returns:
         - data: integer total count
         """
-        path, _ = DOWNSTREAM_KINDS[kind]
+        path, _, _ = DOWNSTREAM_KINDS[kind]
         params = compose_params(filters={"serviceId": [service_id]})
         payload = await client.get(f"{path}/count", params=params)
         return scalar_response(payload)

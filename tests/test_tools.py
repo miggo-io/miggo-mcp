@@ -367,6 +367,19 @@ async def test_service_downstream_search(settings):
 
 
 @pytest.mark.asyncio
+async def test_service_downstream_search_rejects_wrong_kind_sort_field(settings):
+    tools, dummy = make_toolset(settings, {})
+
+    # `dbName` is valid for data-sources but not cloud-resources
+    with pytest.raises(ValueError, match="not valid for kind 'cloud-resources'"):
+        await tools["service_downstream_search"](
+            "svc-1", "cloud-resources", sort=[("dbName", "asc")]
+        )
+
+    assert dummy.calls == []  # no API request issued
+
+
+@pytest.mark.asyncio
 async def test_service_downstream_count(settings):
     responses = {"/v1/services/downstream-services/count": {"data": 3}}
     tools, dummy = make_toolset(settings, responses)

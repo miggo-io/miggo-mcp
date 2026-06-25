@@ -214,15 +214,45 @@ DownstreamKind = Literal[
     "external-services",
 ]
 
-# kind -> (api path, default sort pairs)
-DOWNSTREAM_KINDS: dict[str, tuple[str, list[tuple[str, str]]]] = {
+# Union of every downstream kind's sortable fields, for MCP schema guidance.
+# Per-kind validity is enforced in the tool (each kind allows only a subset).
+DownstreamSortField = Literal[
+    "serviceName",  # downstream-services
+    "method",
+    "route",
+    "apiType",
+    "name",  # cloud-resources + external-services
+    "provider",
+    "region",
+    "type",
+    "dbName",  # data-sources
+    "hostname",
+    "system",
+    "domain",  # external-services
+]
+
+# kind -> (api path, default sort pairs, sortable fields)
+DOWNSTREAM_KINDS: dict[str, tuple[str, list[tuple[str, str]], frozenset[str]]] = {
     "downstream-services": (
         "/v1/services/downstream-services",
         [("serviceName", "asc")],
+        frozenset({"serviceName", "method", "route", "apiType"}),
     ),
-    "cloud-resources": ("/v1/services/cloud-resources", [("name", "asc")]),
-    "data-sources": ("/v1/services/data-sources", [("dbName", "asc")]),
-    "external-services": ("/v1/services/external-services", [("domain", "asc")]),
+    "cloud-resources": (
+        "/v1/services/cloud-resources",
+        [("name", "asc")],
+        frozenset({"name", "provider", "region", "type"}),
+    ),
+    "data-sources": (
+        "/v1/services/data-sources",
+        [("dbName", "asc")],
+        frozenset({"dbName", "hostname", "system"}),
+    ),
+    "external-services": (
+        "/v1/services/external-services",
+        [("domain", "asc")],
+        frozenset({"domain", "name"}),
+    ),
 }
 
 ALL_SORT_FIELDS = sorted(
@@ -242,6 +272,7 @@ __all__ = [
     "DependencyField",
     "DOWNSTREAM_KINDS",
     "DownstreamKind",
+    "DownstreamSortField",
     "ALL_SORT_FIELDS",
     "ENDPOINT_DEFAULT_SORT",
     "ENDPOINT_FIELDS",
