@@ -348,6 +348,51 @@ async def test_third_parties_get_returns_result(settings):
 
 
 @pytest.mark.asyncio
+async def test_service_downstream_search(settings):
+    responses = {
+        "/v1/services/cloud-resources/": {
+            "status": 200,
+            "data": [{"id": "cr-1", "name": "bucket"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["service_downstream_search"]("svc-1", "cloud-resources")
+
+    assert result["data"] == [{"id": "cr-1", "name": "bucket"}]
+    path, params = dummy.calls[0]
+    assert path == "/v1/services/cloud-resources/"
+    assert params["where.serviceId"] == "svc-1"
+    assert params["sort"] == "name,asc"
+
+
+@pytest.mark.asyncio
+async def test_service_downstream_search_rejects_wrong_kind_sort_field(settings):
+    tools, dummy = make_toolset(settings, {})
+
+    # `dbName` is valid for data-sources but not cloud-resources
+    with pytest.raises(ValueError, match="not valid for kind 'cloud-resources'"):
+        await tools["service_downstream_search"](
+            "svc-1", "cloud-resources", sort=[("dbName", "asc")]
+        )
+
+    assert dummy.calls == []  # no API request issued
+
+
+@pytest.mark.asyncio
+async def test_service_downstream_count(settings):
+    responses = {"/v1/services/downstream-services/count": {"data": 3}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["service_downstream_count"]("svc-1", "downstream-services")
+
+    assert result["data"] == 3
+    path, params = dummy.calls[0]
+    assert path == "/v1/services/downstream-services/count"
+    assert params["where.serviceId"] == "svc-1"
+
+
+@pytest.mark.asyncio
 async def test_findings_count_filters(settings):
     responses = {
         "/v1/findings/count": {"data": 12},
