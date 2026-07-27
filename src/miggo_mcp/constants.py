@@ -204,6 +204,57 @@ VULNERABILITY_FIELDS = [
 
 VULNERABILITY_DEFAULT_SORT = [("cvss", "desc")]
 
+DataSourceField = Literal[
+    "id",
+    "system",
+    "dbName",
+    "hostname",
+    "dataSensitivity",
+    "isSensitive",
+    "isAiRelated",
+    "firstSeen",
+    "updatedAt",
+]
+
+# Sortable is a strict subset of filterable here, unlike the other domains.
+DataSourceSortField = Literal[
+    "system",
+    "dbName",
+    "hostname",
+    "firstSeen",
+    "updatedAt",
+]
+
+DATA_SOURCE_FIELDS = [
+    "system",
+    "dbName",
+    "hostname",
+    "firstSeen",
+    "updatedAt",
+]
+
+DATA_SOURCE_DEFAULT_SORT = [("firstSeen", "desc")]
+
+DataSourceTableField = Literal[
+    "dataSourceId",
+    "tableName",
+    "dataSensitivity",
+]
+
+DataSourceTableSortField = Literal[
+    "tableName",
+    "firstSeen",
+    "dataSensitivity",
+]
+
+DATA_SOURCE_TABLE_FIELDS = [
+    "tableName",
+    "firstSeen",
+    "dataSensitivity",
+]
+
+DATA_SOURCE_TABLE_DEFAULT_SORT = [("dataSensitivity", "desc"), ("tableName", "asc")]
+
 # Service downstream sub-resources. All are filtered by a single required
 # serviceId and share the get/count pagination shape, so one tool dispatches
 # over them by ``kind`` rather than four near-identical tool families.
@@ -263,10 +314,20 @@ ALL_SORT_FIELDS = sorted(
         *FINDING_FIELDS,
         *VULNERABILITY_FIELDS,
         *DEPENDENCY_FIELDS,
+        *DATA_SOURCE_FIELDS,
+        *DATA_SOURCE_TABLE_FIELDS,
     }
 )
 
 __all__ = [
+    "DATA_SOURCE_DEFAULT_SORT",
+    "DATA_SOURCE_FIELDS",
+    "DATA_SOURCE_TABLE_DEFAULT_SORT",
+    "DATA_SOURCE_TABLE_FIELDS",
+    "DataSourceField",
+    "DataSourceSortField",
+    "DataSourceTableField",
+    "DataSourceTableSortField",
     "DEPENDENCY_DEFAULT_SORT",
     "DEPENDENCY_FIELDS",
     "DependencyField",

@@ -13,6 +13,8 @@ from ..client import MiggoPublicClient
 from ..config import PublicServerSettings
 from ..constants import (
     API_MAX_PAGE_SIZE,
+    DATA_SOURCE_DEFAULT_SORT,
+    DATA_SOURCE_TABLE_DEFAULT_SORT,
     DEPENDENCY_DEFAULT_SORT,
     DOWNSTREAM_KINDS,
     ENDPOINT_DEFAULT_SORT,
@@ -20,6 +22,9 @@ from ..constants import (
     MAX_PAGE_SIZE,
     THIRD_PARTY_DEFAULT_SORT,
     VULNERABILITY_DEFAULT_SORT,
+    DataSourceField,
+    DataSourceSortField,
+    DataSourceTableSortField,
     DependencyField,
     DownstreamKind,
     DownstreamSortField,
@@ -107,6 +112,7 @@ def register_all_tools(
     tools.update(register_vulnerabilities_tools(server, settings, client))
     tools.update(register_dependencies_tools(server, settings, client))
     tools.update(register_downstream_tools(server, settings, client))
+    tools.update(register_data_sources_tools(server, settings, client))
     tools.update(register_project_tools(server, settings, client))
     return tools
 
@@ -644,7 +650,8 @@ def register_findings_tools(
         - remediation: remediation guidance (nullable)
         - createdAt: created timestamp
         - updatedAt: updated timestamp
-        - evidence: evidence items (configuration/custom/span/trace/stack-trace/markdown/process_tree)
+        - evidence: evidence stubs, type only (configuration/custom/span/trace/
+          stack-trace/markdown/process_tree). Call ``findings_get`` for the payloads.
         - values: additional key-value data
         - attackStep: attack step (access/penetration/exploitation/impact/null)
         - mitigation: mitigation guidance (nullable)
@@ -698,31 +705,20 @@ def register_findings_tools(
     async def findings_get(
         finding_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
-        """Fetch a single finding by id.
+        """Fetch a single finding by id, with its raw evidence resolved.
 
-        Purpose: Retrieve a Finding record for details or joins.
+        Purpose: Retrieve the telemetry behind a finding — spans, traces, stack
+        traces, process trees, configuration snapshots. ``findings_search`` only
+        reports which evidence types a finding has; the payloads live here.
 
         Returns:
-        - data: Finding object (see fields listed in findings_list)
+        - data: Finding object (see fields listed in findings_search) whose
+          ``evidence`` entries carry their resolved payloads
         - meta: optional metadata if present in API response
         - status: optional HTTP status code from Miggo
         """
-        params = compose_params(
-            filters={"id": [finding_id]},
-            take=1,
-            sort=_resolve_sort(None, FINDING_DEFAULT_SORT),
-        )
-        payload = await client.get("/v1/findings/", params=params)
-
-        findings = payload.get("data") or []
-        if not findings:
-            raise ValueError(f"No finding found for id {finding_id!r}")
-
-        response = {"data": findings[0]}
-        meta = payload.get("meta")
-        if isinstance(meta, Mapping) and meta:
-            response["meta"] = meta
-        return response
+        payload = await client.get("/v1/findings/single", params={"id": finding_id})
+        return collection_response(payload)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def findings_count(
@@ -831,6 +827,7 @@ def register_vulnerabilities_tools(
         vulnerability_ids: Sequence[str] | None = None,
         packages: Sequence[str] | None = None,
         has_public_fix: bool | None = None,
+        include_evidence: bool = False,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[VulnerabilityField, SortDirection]] | None = None,
@@ -838,6 +835,11 @@ def register_vulnerabilities_tools(
         """Search known vulnerabilities.
 
         Purpose: Search vulnerabilities across services/images/packages with filters/sort/paging.
+
+        Set ``include_evidence`` to keep the runtime ``evidences`` stack traces on
+        every row. They are dropped by default because they dwarf the rest of the
+        record (~7KB vs ~1KB). Prefer ``vulnerabilities_get``, which always keeps
+        them, for a single vulnerability.
 
         Data fields:
         - id: vulnerability record ID
@@ -861,6 +863,10 @@ def register_vulnerabilities_tools(
         - package: affected package name
         - hasPublicFix: public fix available flag
         - fixedVersions: fixed version list (nullable)
+        - packagePaths: filesystem paths the vulnerable package was found at
+        - evidences: runtime stack traces proving the package executed, each with
+          ``frame_count``, ``highlights`` and a ``trace`` frame list (omitted
+          unless ``include_evidence``)
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -889,18 +895,21 @@ def register_vulnerabilities_tools(
             take=paging.take,
             sort=sort_params,
         )
+        if not include_evidence:
+            _drop_field(payload, "evidences")
         return collection_response(payload)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def vulnerabilities_get(
         vulnerability_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
-        """Fetch a single vulnerability by id.
+        """Fetch a single vulnerability by id, including its runtime evidence.
 
-        Purpose: Retrieve a Vulnerability record for details or joins.
+        Purpose: Retrieve a Vulnerability record for details or joins, with the
+        ``evidences`` stack traces ``vulnerabilities_search`` omits by default.
 
         Returns:
-        - data: Vulnerability object (see fields listed in vulnerabilities_list)
+        - data: Vulnerability object (see fields listed in vulnerabilities_search)
         - meta: optional metadata if present in API response
         - status: optional HTTP status code from Miggo
         """
@@ -1306,6 +1315,216 @@ def register_downstream_tools(
     }
 
 
+def register_data_sources_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for data sources (databases) and their tables."""
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def data_sources_search(
+        *,
+        ids: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        db_names: Sequence[str] | None = None,
+        hostnames: Sequence[str] | None = None,
+        data_sensitivities: Sequence[str] | None = None,
+        is_sensitive: bool | None = None,
+        is_ai_related: bool | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[DataSourceSortField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search data sources (databases) observed in your Miggo environment.
+
+        Purpose: Answer where data lives and which stores hold sensitive or
+        AI-accessed data. Findings reference data sources in their ``entities``;
+        look them up here by that entity ``id``.
+
+        Data fields:
+        - id: data source ID (matches the data-source entity id on findings)
+        - type: resource type ("data-source")
+        - system: engine, e.g. postgres | mysql | dynamodb
+        - dbName: database or instance name
+        - hostname: host it was observed on
+        - port: port it was observed on
+        - dataSensitivity: sensitivity tags aggregated over its tables
+          (PII | PCI | PHI | SECRET | TOKEN)
+        - isSensitive: any sensitive data observed (nullable)
+        - isAiRelated: observed being used by an AI workload (nullable)
+        - firstSeen / createdAt / updatedAt: timestamps
+        - evidence: inventory evidence keyed by tag (http requests, traces)
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            system=systems,
+            dbName=db_names,
+            hostname=hostnames,
+            dataSensitivity=data_sensitivities,
+            isSensitive=is_sensitive,
+            isAiRelated=is_ai_related,
+        )
+
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/data-sources/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, DATA_SOURCE_DEFAULT_SORT),
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def data_sources_get(
+        data_source_id: Annotated[str, Field(min_length=1)],
+    ) -> dict[str, object]:
+        """Fetch a single data source by id.
+
+        Returns:
+        - data: DataSource object (see fields listed in data_sources_search)
+        """
+        params = compose_params(
+            filters={"id": [data_source_id]},
+            take=1,
+            sort=_resolve_sort(None, DATA_SOURCE_DEFAULT_SORT),
+        )
+        payload = await client.get("/v1/data-sources/", params=params)
+
+        data_sources = payload.get("data") or []
+        if not data_sources:
+            raise ValueError(f"No data source found for id {data_source_id!r}")
+
+        response = {"data": data_sources[0]}
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta:
+            response["meta"] = meta
+        return response
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def data_sources_count(
+        *,
+        ids: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        db_names: Sequence[str] | None = None,
+        hostnames: Sequence[str] | None = None,
+        data_sensitivities: Sequence[str] | None = None,
+        is_sensitive: bool | None = None,
+        is_ai_related: bool | None = None,
+    ) -> dict[str, object]:
+        """Count data sources matching filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(
+            id=ids,
+            system=systems,
+            dbName=db_names,
+            hostname=hostnames,
+            dataSensitivity=data_sensitivities,
+            isSensitive=is_sensitive,
+            isAiRelated=is_ai_related,
+        )
+
+        params = compose_params(filters=filters)
+        payload = await client.get("/v1/data-sources/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def data_sources_facets(
+        *,
+        fields: Sequence[DataSourceField] | None = None,
+        ids: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        db_names: Sequence[str] | None = None,
+        hostnames: Sequence[str] | None = None,
+        data_sensitivities: Sequence[str] | None = None,
+        is_sensitive: bool | None = None,
+        is_ai_related: bool | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[DataSourceSortField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for data source objects.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            system=systems,
+            dbName=db_names,
+            hostname=hostnames,
+            dataSensitivity=data_sensitivities,
+            isSensitive=is_sensitive,
+            isAiRelated=is_ai_related,
+        )
+
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, DATA_SOURCE_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get("/v1/data-sources/facets", params=params)
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def data_source_tables_search(
+        data_source_id: Annotated[str, Field(min_length=1)],
+        *,
+        table_names: Sequence[str] | None = None,
+        data_sensitivities: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[DataSourceTableSortField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """List the tables observed in one data source.
+
+        Purpose: Drill from a data source into the tables and columns actually
+        accessed, and see which of them carry sensitive data.
+
+        Data fields:
+        - dataSourceId: parent data source ID
+        - type: resource type ("data-source-table")
+        - tableName: table name, unique within its data source
+        - tableColumns: columns observed being accessed
+        - dataSensitivity: sensitivity tags observed on this table
+        - firstSeen: first observed timestamp
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            dataSourceId=[data_source_id],
+            tableName=table_names,
+            dataSensitivity=data_sensitivities,
+        )
+
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/data-sources/tables/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, DATA_SOURCE_TABLE_DEFAULT_SORT),
+        )
+        return collection_response(payload)
+
+    return {
+        "data_sources_search": data_sources_search,
+        "data_sources_get": data_sources_get,
+        "data_sources_count": data_sources_count,
+        "data_sources_facets": data_sources_facets,
+        "data_source_tables_search": data_source_tables_search,
+    }
+
+
 def register_project_tools(
     server: FastMCP,
     settings: PublicServerSettings,
@@ -1327,6 +1546,19 @@ def register_project_tools(
         return collection_response(payload)
 
     return {"project_get": project_get}
+
+
+def _drop_field(payload: dict[str, Any], field: str) -> None:
+    """Remove ``field`` from every row of a collection payload, in place."""
+    rows = payload.get("data")
+    if not isinstance(rows, list):
+        return
+    payload["data"] = [
+        {key: value for key, value in row.items() if key != field}
+        if isinstance(row, Mapping)
+        else row
+        for row in rows
+    ]
 
 
 def _build_where_filters(**field_values: object) -> dict[str, list[object]]:
@@ -1485,6 +1717,7 @@ def _parse_default_sort(value: str | None) -> list[tuple[str, str]]:
 
 __all__ = [
     "register_all_tools",
+    "register_data_sources_tools",
     "register_downstream_tools",
     "register_endpoints_tools",
     "register_findings_tools",

@@ -408,6 +408,117 @@ async def test_findings_count_filters(settings):
 
 
 @pytest.mark.asyncio
+async def test_findings_get_uses_hydrated_evidence_endpoint(settings):
+    responses = {
+        "/v1/findings/single": {
+            "status": 200,
+            "data": {"id": "find-1", "evidence": [{"type": "span", "evidence": [{}]}]},
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["findings_get"]("find-1")
+
+    assert result["data"]["evidence"][0]["type"] == "span"
+    path, params = dummy.calls[0]
+    assert path == "/v1/findings/single"
+    assert params == {"id": "find-1"}
+
+
+@pytest.mark.asyncio
+async def test_vulnerabilities_search_drops_evidence_by_default(settings):
+    responses = {
+        "/v1/vulnerabilities/": {
+            "status": 200,
+            "data": [{"id": "vuln-1", "evidences": [{"evidence": {}}], "cvss": 9.8}],
+        }
+    }
+    tools, _ = make_toolset(settings, responses)
+
+    default_result = await tools["vulnerabilities_search"]()
+    assert default_result["data"] == [{"id": "vuln-1", "cvss": 9.8}]
+
+    with_evidence = await tools["vulnerabilities_search"](include_evidence=True)
+    assert with_evidence["data"][0]["evidences"] == [{"evidence": {}}]
+
+
+@pytest.mark.asyncio
+async def test_vulnerabilities_get_keeps_evidence(settings):
+    responses = {
+        "/v1/vulnerabilities/": {
+            "status": 200,
+            "data": [{"id": "vuln-1", "evidences": [{"evidence": {}}]}],
+        }
+    }
+    tools, _ = make_toolset(settings, responses)
+
+    result = await tools["vulnerabilities_get"]("vuln-1")
+
+    assert result["data"]["evidences"] == [{"evidence": {}}]
+
+
+@pytest.mark.asyncio
+async def test_data_sources_search(settings):
+    responses = {
+        "/v1/data-sources/": {
+            "status": 200,
+            "data": [{"id": "ds-1", "dbName": "orders", "system": "postgres"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["data_sources_search"](systems=["postgres"], is_sensitive=True)
+
+    assert result["data"][0]["dbName"] == "orders"
+    path, params = dummy.calls[0]
+    assert path == "/v1/data-sources/"
+    assert params["where.system"] == "postgres"
+    assert params["where.isSensitive"] == "true"
+    assert params["sort"] == "firstSeen,desc"
+
+
+@pytest.mark.asyncio
+async def test_data_sources_get_fails_when_missing(settings):
+    responses = {"/v1/data-sources/": {"status": 200, "data": []}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No data source found"):
+        await tools["data_sources_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_data_sources_count(settings):
+    responses = {"/v1/data-sources/count": {"data": 4}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["data_sources_count"](data_sensitivities=["PII"])
+
+    assert result["data"] == 4
+    path, params = dummy.calls[0]
+    assert path == "/v1/data-sources/count"
+    assert params["where.dataSensitivity"] == "PII"
+
+
+@pytest.mark.asyncio
+async def test_data_source_tables_search_scopes_to_data_source(settings):
+    responses = {
+        "/v1/data-sources/tables/": {
+            "status": 200,
+            "data": [{"dataSourceId": "ds-1", "tableName": "users"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["data_source_tables_search"]("ds-1")
+
+    assert result["data"][0]["tableName"] == "users"
+    path, params = dummy.calls[0]
+    assert path == "/v1/data-sources/tables/"
+    assert params["where.dataSourceId"] == "ds-1"
+    assert params["sort"] == "dataSensitivity,desc,tableName,asc"
+
+
+@pytest.mark.asyncio
 async def test_vulnerabilities_facets_boolean_serialization(settings):
     responses = {
         "/v1/vulnerabilities/facets": {
