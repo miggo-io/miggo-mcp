@@ -426,6 +426,22 @@ async def test_findings_get_uses_hydrated_evidence_endpoint(settings):
 
 
 @pytest.mark.asyncio
+async def test_findings_get_surfaces_not_found(settings):
+    # Unlike the list-backed `_get` tools, /v1/findings/single 404s on an
+    # unknown id rather than returning an empty collection.
+    responses = {
+        "/v1/findings/single": {
+            "status": 404,
+            "error": {"message": "Finding not found"},
+        }
+    }
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(MiggoApiError, match="Finding not found"):
+        await tools["findings_get"]("unknown")
+
+
+@pytest.mark.asyncio
 async def test_vulnerabilities_search_drops_evidence_by_default(settings):
     responses = {
         "/v1/vulnerabilities/": {
