@@ -705,15 +705,12 @@ def register_findings_tools(
     async def findings_get(
         finding_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
-        """Fetch a single finding by id, with its raw evidence resolved.
+        """Fetch a single finding by id.
 
-        Purpose: Retrieve the telemetry behind a finding — spans, traces, stack
-        traces, process trees, configuration snapshots. ``findings_search`` only
-        reports which evidence types a finding has; the payloads live here.
+        Purpose: Retrieve a Finding record for details or joins.
 
         Returns:
-        - data: Finding object (see fields listed in findings_search) whose
-          ``evidence`` entries carry their resolved payloads
+        - data: Finding object (see fields listed in findings_search)
         - meta: optional metadata if present in API response
         - status: optional HTTP status code from Miggo
         """
@@ -827,7 +824,6 @@ def register_vulnerabilities_tools(
         vulnerability_ids: Sequence[str] | None = None,
         packages: Sequence[str] | None = None,
         has_public_fix: bool | None = None,
-        include_evidence: bool = False,
         skip: Skip = None,
         take: Take = None,
         sort: Sequence[tuple[VulnerabilityField, SortDirection]] | None = None,
@@ -835,11 +831,6 @@ def register_vulnerabilities_tools(
         """Search known vulnerabilities.
 
         Purpose: Search vulnerabilities across services/images/packages with filters/sort/paging.
-
-        Set ``include_evidence`` to keep the runtime ``evidences`` stack traces on
-        every row. They are dropped by default because they dwarf the rest of the
-        record (~7KB vs ~1KB). Prefer ``vulnerabilities_get``, which always keeps
-        them, for a single vulnerability.
 
         Data fields:
         - id: vulnerability record ID
@@ -864,9 +855,7 @@ def register_vulnerabilities_tools(
         - hasPublicFix: public fix available flag
         - fixedVersions: fixed version list (nullable)
         - packagePaths: filesystem paths the vulnerable package was found at
-        - evidences: runtime stack traces proving the package executed, each with
-          ``frame_count``, ``highlights`` and a ``trace`` frame list (omitted
-          unless ``include_evidence``)
+        - evidences: runtime stack traces proving the package executed
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -895,18 +884,15 @@ def register_vulnerabilities_tools(
             take=paging.take,
             sort=sort_params,
         )
-        if not include_evidence:
-            _drop_field(payload, "evidences")
         return collection_response(payload)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def vulnerabilities_get(
         vulnerability_id: Annotated[str, Field(min_length=1)],
     ) -> dict[str, object]:
-        """Fetch a single vulnerability by id, including its runtime evidence.
+        """Fetch a single vulnerability by id.
 
-        Purpose: Retrieve a Vulnerability record for details or joins, with the
-        ``evidences`` stack traces ``vulnerabilities_search`` omits by default.
+        Purpose: Retrieve a Vulnerability record for details or joins.
 
         Returns:
         - data: Vulnerability object (see fields listed in vulnerabilities_search)
@@ -1546,19 +1532,6 @@ def register_project_tools(
         return collection_response(payload)
 
     return {"project_get": project_get}
-
-
-def _drop_field(payload: dict[str, Any], field: str) -> None:
-    """Remove ``field`` from every row of a collection payload, in place."""
-    rows = payload.get("data")
-    if not isinstance(rows, list):
-        return
-    payload["data"] = [
-        {key: value for key, value in row.items() if key != field}
-        if isinstance(row, Mapping)
-        else row
-        for row in rows
-    ]
 
 
 def _build_where_filters(**field_values: object) -> dict[str, list[object]]:
