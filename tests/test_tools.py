@@ -442,7 +442,7 @@ async def test_findings_get_surfaces_not_found(settings):
 
 
 @pytest.mark.asyncio
-async def test_vulnerabilities_search_drops_evidence_by_default(settings):
+async def test_vulnerabilities_search_keeps_evidence(settings):
     responses = {
         "/v1/vulnerabilities/": {
             "status": 200,
@@ -451,11 +451,8 @@ async def test_vulnerabilities_search_drops_evidence_by_default(settings):
     }
     tools, _ = make_toolset(settings, responses)
 
-    default_result = await tools["vulnerabilities_search"]()
-    assert default_result["data"] == [{"id": "vuln-1", "cvss": 9.8}]
-
-    with_evidence = await tools["vulnerabilities_search"](include_evidence=True)
-    assert with_evidence["data"][0]["evidences"] == [{"evidence": {}}]
+    result = await tools["vulnerabilities_search"]()
+    assert result["data"] == [{"id": "vuln-1", "evidences": [{"evidence": {}}], "cvss": 9.8}]
 
 
 @pytest.mark.asyncio
