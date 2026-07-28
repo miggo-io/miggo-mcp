@@ -452,7 +452,9 @@ async def test_vulnerabilities_search_keeps_evidence(settings):
     tools, _ = make_toolset(settings, responses)
 
     result = await tools["vulnerabilities_search"]()
-    assert result["data"] == [{"id": "vuln-1", "evidences": [{"evidence": {}}], "cvss": 9.8}]
+    assert result["data"] == [
+        {"id": "vuln-1", "evidences": [{"evidence": {}}], "cvss": 9.8}
+    ]
 
 
 @pytest.mark.asyncio
