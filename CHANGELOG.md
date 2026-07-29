@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/miggo-io/miggo-mcp/compare/v0.7.0...v0.8.0) (2026-07-28)
+
+
+### Features
+
+* COP-500 expose finding/vulnerability evidence, COP-499 add data source tools ([#35](https://github.com/miggo-io/miggo-mcp/issues/35)) ([c497124](https://github.com/miggo-io/miggo-mcp/commit/c497124689e2f99fb9148a3b5ee48f3c6faf5160))
+
 ## [0.7.0](https://github.com/miggo-io/miggo-mcp/compare/v0.6.0...v0.7.0) (2026-06-25)
 
 
