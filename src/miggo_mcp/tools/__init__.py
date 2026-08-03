@@ -13,19 +13,26 @@ from ..client import MiggoPublicClient
 from ..config import PublicServerSettings
 from ..constants import (
     API_MAX_PAGE_SIZE,
+    CLOUD_RESOURCE_DEFAULT_SORT,
     DATA_SOURCE_DEFAULT_SORT,
     DATA_SOURCE_TABLE_DEFAULT_SORT,
     DEPENDENCY_DEFAULT_SORT,
+    DOMAIN_DEFAULT_SORT,
     DOWNSTREAM_KINDS,
     ENDPOINT_DEFAULT_SORT,
     FINDING_DEFAULT_SORT,
     MAX_PAGE_SIZE,
     THIRD_PARTY_DEFAULT_SORT,
     VULNERABILITY_DEFAULT_SORT,
+    CloudResourceField,
+    CloudResourceSortField,
     DataSourceField,
     DataSourceSortField,
     DataSourceTableSortField,
     DependencyField,
+    DomainEdgeProtection,
+    DomainField,
+    DomainSortField,
     DownstreamKind,
     DownstreamSortField,
     EndpointField,
@@ -113,6 +120,8 @@ def register_all_tools(
     tools.update(register_dependencies_tools(server, settings, client))
     tools.update(register_downstream_tools(server, settings, client))
     tools.update(register_data_sources_tools(server, settings, client))
+    tools.update(register_domains_tools(server, settings, client))
+    tools.update(register_cloud_resources_tools(server, settings, client))
     tools.update(register_project_tools(server, settings, client))
     return tools
 
@@ -1511,6 +1520,356 @@ def register_data_sources_tools(
     }
 
 
+def register_domains_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for domains."""
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def domains_search(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        roots: Sequence[str] | None = None,
+        service_names: Sequence[str] | None = None,
+        edge_protections: Sequence[DomainEdgeProtection] | None = None,
+        is_internet_facing: bool | None = None,
+        is_ai_related: bool | None = None,
+        integrations_types: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[DomainSortField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search domains observed in your Miggo environment.
+
+        Purpose: Map domain-level attack surface — which names resolve to the
+        internet, what sits in front of them, and which service serves them.
+        Findings reference domains in their ``entities``; look them up here by
+        that entity ``id``. Cluster-internal names (``*.cluster.local``,
+        ``*.svc``) and bare IPs are excluded by the API.
+
+        Data fields:
+        - id: domain ID (matches the domain entity id on findings)
+        - type: resource type ("domain")
+        - name: fully qualified domain name
+        - root: registrable root domain
+        - serviceName: a service observed serving this domain (nullable). One
+          domain can be served by several; only the first is exposed.
+        - edgeProtection: Protected | Proxied | Not Protected (nullable)
+        - isInternetFacing: resolves to an internet-facing address
+        - isAiRelated: observed being used by an AI workload (nullable)
+        - integrationsTypes: integrations this domain was discovered through
+        - dnsRecords: observed DNS records (name/type/content/origin). Returned
+          but not filterable or sortable.
+        - createdAt / updatedAt: timestamps
+        - evidence: inventory evidence keyed by tag
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            root=roots,
+            serviceName=service_names,
+            edgeProtection=edge_protections,
+            isInternetFacing=is_internet_facing,
+            isAiRelated=is_ai_related,
+            integrationsTypes=integrations_types,
+        )
+
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/domains/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, DOMAIN_DEFAULT_SORT),
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def domains_get(
+        domain_id: Annotated[str, Field(min_length=1)],
+    ) -> dict[str, object]:
+        """Fetch a single domain by id.
+
+        Returns:
+        - data: Domain object (see fields listed in domains_search)
+        """
+        params = compose_params(
+            filters={"id": [domain_id]},
+            take=1,
+            sort=_resolve_sort(None, DOMAIN_DEFAULT_SORT),
+        )
+        payload = await client.get("/v1/domains/", params=params)
+
+        domains = payload.get("data") or []
+        if not domains:
+            raise ValueError(f"No domain found for id {domain_id!r}")
+
+        response = {"data": domains[0]}
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta:
+            response["meta"] = meta
+        return response
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def domains_count(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        roots: Sequence[str] | None = None,
+        service_names: Sequence[str] | None = None,
+        edge_protections: Sequence[DomainEdgeProtection] | None = None,
+        is_internet_facing: bool | None = None,
+        is_ai_related: bool | None = None,
+        integrations_types: Sequence[str] | None = None,
+    ) -> dict[str, object]:
+        """Count domains matching filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            root=roots,
+            serviceName=service_names,
+            edgeProtection=edge_protections,
+            isInternetFacing=is_internet_facing,
+            isAiRelated=is_ai_related,
+            integrationsTypes=integrations_types,
+        )
+
+        params = compose_params(filters=filters)
+        payload = await client.get("/v1/domains/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def domains_facets(
+        *,
+        fields: Sequence[DomainField] | None = None,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        roots: Sequence[str] | None = None,
+        service_names: Sequence[str] | None = None,
+        edge_protections: Sequence[DomainEdgeProtection] | None = None,
+        is_internet_facing: bool | None = None,
+        is_ai_related: bool | None = None,
+        integrations_types: Sequence[str] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[DomainSortField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for domain objects.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            root=roots,
+            serviceName=service_names,
+            edgeProtection=edge_protections,
+            isInternetFacing=is_internet_facing,
+            isAiRelated=is_ai_related,
+            integrationsTypes=integrations_types,
+        )
+
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, DOMAIN_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get("/v1/domains/facets", params=params)
+        return collection_response(payload)
+
+    return {
+        "domains_search": domains_search,
+        "domains_get": domains_get,
+        "domains_count": domains_count,
+        "domains_facets": domains_facets,
+    }
+
+
+def register_cloud_resources_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for cloud resources."""
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def cloud_resources_search(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        providers: Sequence[str] | None = None,
+        regions: Sequence[str] | None = None,
+        resource_types: Sequence[str] | None = None,
+        cloud_services: Sequence[str] | None = None,
+        is_ai_related: bool | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[CloudResourceSortField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search cloud resources observed in your Miggo environment.
+
+        Purpose: Inventory the buckets, queues, databases and other provider
+        resources services talk to. Findings reference cloud resources in their
+        ``entities``; look them up here by that entity ``id``. For the resources
+        one specific service uses, prefer ``service_downstream_search`` with
+        kind ``cloud-resources``.
+
+        Data fields:
+        - id: cloud resource ID (matches the cloud-resource entity id on findings)
+        - type: resource type ("cloud-resource")
+        - name: resource name as reported by the provider
+        - provider: cloud provider, e.g. AWS | GCP | Azure (nullable)
+        - region: provider region, e.g. us-east-1 (nullable)
+        - resourceType: provider-reported category, e.g. Database | Storage |
+          Queue (nullable)
+        - cloudService: provider service, e.g. s3 | rds | sqs
+        - isAiRelated: observed being used by an AI workload (nullable)
+        - lastSeen: last time an endpoint was seen talking to it (nullable)
+        - createdAt / updatedAt: timestamps
+        - evidence: inventory evidence keyed by tag
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            provider=providers,
+            region=regions,
+            resourceType=resource_types,
+            cloudService=cloud_services,
+            isAiRelated=is_ai_related,
+        )
+
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/cloud-resources/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, CLOUD_RESOURCE_DEFAULT_SORT),
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def cloud_resources_get(
+        cloud_resource_id: Annotated[str, Field(min_length=1)],
+    ) -> dict[str, object]:
+        """Fetch a single cloud resource by id.
+
+        Returns:
+        - data: CloudResource object (see fields listed in cloud_resources_search)
+        """
+        params = compose_params(
+            filters={"id": [cloud_resource_id]},
+            take=1,
+            sort=_resolve_sort(None, CLOUD_RESOURCE_DEFAULT_SORT),
+        )
+        payload = await client.get("/v1/cloud-resources/", params=params)
+
+        cloud_resources = payload.get("data") or []
+        if not cloud_resources:
+            raise ValueError(f"No cloud resource found for id {cloud_resource_id!r}")
+
+        response = {"data": cloud_resources[0]}
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta:
+            response["meta"] = meta
+        return response
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def cloud_resources_count(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        providers: Sequence[str] | None = None,
+        regions: Sequence[str] | None = None,
+        resource_types: Sequence[str] | None = None,
+        cloud_services: Sequence[str] | None = None,
+        is_ai_related: bool | None = None,
+    ) -> dict[str, object]:
+        """Count cloud resources matching filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            provider=providers,
+            region=regions,
+            resourceType=resource_types,
+            cloudService=cloud_services,
+            isAiRelated=is_ai_related,
+        )
+
+        params = compose_params(filters=filters)
+        payload = await client.get("/v1/cloud-resources/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def cloud_resources_facets(
+        *,
+        fields: Sequence[CloudResourceField] | None = None,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        providers: Sequence[str] | None = None,
+        regions: Sequence[str] | None = None,
+        resource_types: Sequence[str] | None = None,
+        cloud_services: Sequence[str] | None = None,
+        is_ai_related: bool | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[CloudResourceSortField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for cloud resource objects.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            provider=providers,
+            region=regions,
+            resourceType=resource_types,
+            cloudService=cloud_services,
+            isAiRelated=is_ai_related,
+        )
+
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, CLOUD_RESOURCE_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get("/v1/cloud-resources/facets", params=params)
+        return collection_response(payload)
+
+    return {
+        "cloud_resources_search": cloud_resources_search,
+        "cloud_resources_get": cloud_resources_get,
+        "cloud_resources_count": cloud_resources_count,
+        "cloud_resources_facets": cloud_resources_facets,
+    }
+
+
 def register_project_tools(
     server: FastMCP,
     settings: PublicServerSettings,
@@ -1690,7 +2049,9 @@ def _parse_default_sort(value: str | None) -> list[tuple[str, str]]:
 
 __all__ = [
     "register_all_tools",
+    "register_cloud_resources_tools",
     "register_data_sources_tools",
+    "register_domains_tools",
     "register_downstream_tools",
     "register_endpoints_tools",
     "register_findings_tools",
