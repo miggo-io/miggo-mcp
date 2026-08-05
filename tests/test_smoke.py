@@ -22,8 +22,8 @@ from pathlib import Path
 import pytest
 from mcp import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
+from mcp.types import LATEST_PROTOCOL_VERSION
 
-EXPECTED_PROTOCOL = "2025-06-18"
 MIN_TOOLS = 25
 
 
@@ -51,7 +51,12 @@ async def test_full_mcp_session() -> None:
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
             init = await session.initialize()
-            assert init.protocolVersion == EXPECTED_PROTOCOL
+            # Compare against the SDK's own constant rather than a literal.
+            # Client and server both come from the installed mcp package, so
+            # they negotiate its newest protocol — hardcoding the version made
+            # this fail on every SDK upgrade (1.19 -> 1.29 moved it from
+            # 2025-06-18 to 2025-11-25) without anything actually being broken.
+            assert init.protocolVersion == LATEST_PROTOCOL_VERSION
 
             tools_resp = await session.list_tools()
             tool_names = {t.name for t in tools_resp.tools}
