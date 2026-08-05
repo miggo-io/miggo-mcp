@@ -18,6 +18,20 @@ jobs:
       - name: Test
         run: uv run pytest
 
+  fresh-resolution:
+    name: Fresh dependency resolution
+    # `uv sync` above honors uv.lock, so it can never catch an upstream release
+    # that breaks a fresh install. This job resolves dependencies the way
+    # `uvx --from git+...` does — no lockfile — and builds the server.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: astral-sh/setup-uv@2ddd2b9cb38ad8efd50337e8ab201519a34c9f24 # v7.1.1
+      - name: Build server against freshly resolved dependencies
+        run: >-
+          uv run --isolated --no-project --refresh --resolution highest --with .
+          python scripts/check_fresh_resolution.py
+
   smoke-test:
     name: Smoke test (${{ matrix.os }})
     # Skip on fork PRs — they don't get the MIGGO_PUBLIC_TOKEN secret. We can't

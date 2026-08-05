@@ -8,7 +8,10 @@ version = "0.8.1"
 description = "MCP server for Miggo's public API"
 requires-python = ">=3.12"
 dependencies = [
-    "mcp[cli]>=1.19.0",
+    # Upper bound is load-bearing: mcp 2.0.0 removed `mcp.server.fastmcp`
+    # entirely, which `main.py` imports. Lift only alongside a port to the 2.x
+    # server API.
+    "mcp[cli]>=1.19.0,<2",
     "httpx>=0.28.1",
     "pydantic>=2.12.3",
     "pydantic-settings>=2.11.0",
