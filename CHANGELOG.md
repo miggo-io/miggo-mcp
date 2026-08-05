@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/miggo-io/miggo-mcp/compare/v0.8.1...v0.8.2) (2026-08-05)
+
+
+### Bug Fixes
+
+* cap mcp SDK below 2.0 to unbreak fresh installs ([#39](https://github.com/miggo-io/miggo-mcp/issues/39)) ([bf8d090](https://github.com/miggo-io/miggo-mcp/commit/bf8d090d329d0c9226363eec470c76968cff13ce))
+
 ## [0.8.1](https://github.com/miggo-io/miggo-mcp/compare/v0.8.0...v0.8.1) (2026-08-05)
 
 
