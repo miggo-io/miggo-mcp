@@ -255,6 +255,81 @@ DATA_SOURCE_TABLE_FIELDS = [
 
 DATA_SOURCE_TABLE_DEFAULT_SORT = [("dataSensitivity", "desc"), ("tableName", "asc")]
 
+DomainField = Literal[
+    "id",
+    "name",
+    "root",
+    "serviceName",
+    "edgeProtection",
+    "isInternetFacing",
+    "isAiRelated",
+    "integrationsTypes",
+    "createdAt",
+    "updatedAt",
+]
+
+# `dnsRecords` is jsonb: returned, but neither sortable nor filterable.
+DomainSortField = Literal[
+    "name",
+    "root",
+    "serviceName",
+    "edgeProtection",
+    "isInternetFacing",
+    "createdAt",
+    "updatedAt",
+]
+
+DomainEdgeProtection = Literal["Protected", "Proxied", "Not Protected"]
+
+DOMAIN_FIELDS = [
+    "name",
+    "root",
+    "serviceName",
+    "edgeProtection",
+    "isInternetFacing",
+    "createdAt",
+    "updatedAt",
+]
+
+DOMAIN_DEFAULT_SORT = [("createdAt", "desc")]
+
+CloudResourceField = Literal[
+    "id",
+    "name",
+    "provider",
+    "region",
+    "resourceType",
+    "cloudService",
+    "isAiRelated",
+    "lastSeen",
+    "createdAt",
+    "updatedAt",
+]
+
+CloudResourceSortField = Literal[
+    "name",
+    "provider",
+    "region",
+    "resourceType",
+    "cloudService",
+    "lastSeen",
+    "createdAt",
+    "updatedAt",
+]
+
+CLOUD_RESOURCE_FIELDS = [
+    "name",
+    "provider",
+    "region",
+    "resourceType",
+    "cloudService",
+    "lastSeen",
+    "createdAt",
+    "updatedAt",
+]
+
+CLOUD_RESOURCE_DEFAULT_SORT = [("lastSeen", "desc")]
+
 # Service downstream sub-resources. All are filtered by a single required
 # serviceId and share the get/count pagination shape, so one tool dispatches
 # over them by ``kind`` rather than four near-identical tool families.
@@ -316,10 +391,21 @@ ALL_SORT_FIELDS = sorted(
         *DEPENDENCY_FIELDS,
         *DATA_SOURCE_FIELDS,
         *DATA_SOURCE_TABLE_FIELDS,
+        *DOMAIN_FIELDS,
+        *CLOUD_RESOURCE_FIELDS,
     }
 )
 
 __all__ = [
+    "CLOUD_RESOURCE_DEFAULT_SORT",
+    "CLOUD_RESOURCE_FIELDS",
+    "CloudResourceField",
+    "CloudResourceSortField",
+    "DOMAIN_DEFAULT_SORT",
+    "DOMAIN_FIELDS",
+    "DomainEdgeProtection",
+    "DomainField",
+    "DomainSortField",
     "DATA_SOURCE_DEFAULT_SORT",
     "DATA_SOURCE_FIELDS",
     "DATA_SOURCE_TABLE_DEFAULT_SORT",

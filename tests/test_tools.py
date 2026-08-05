@@ -534,6 +534,178 @@ async def test_data_source_tables_search_scopes_to_data_source(settings):
 
 
 @pytest.mark.asyncio
+async def test_domains_search(settings):
+    responses = {
+        "/v1/domains/": {
+            "status": 200,
+            "data": [{"id": "dom-1", "name": "api.example.com", "root": "example.com"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["domains_search"](
+        roots=["example.com"],
+        edge_protections=["Not Protected"],
+        is_internet_facing=True,
+    )
+
+    assert result["data"][0]["name"] == "api.example.com"
+    path, params = dummy.calls[0]
+    assert path == "/v1/domains/"
+    assert params["where.root"] == "example.com"
+    assert params["where.edgeProtection"] == "Not Protected"
+    assert params["where.isInternetFacing"] == "true"
+    assert params["sort"] == "createdAt,desc"
+
+
+@pytest.mark.asyncio
+async def test_domains_get_returns_result(settings):
+    responses = {
+        "/v1/domains/": {
+            "status": 200,
+            "data": [{"id": "dom-1", "name": "api.example.com", "root": "example.com"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["domains_get"]("dom-1")
+
+    assert result["data"]["name"] == "api.example.com"
+    _, params = dummy.calls[0]
+    assert params["where.id"] == "dom-1"
+    assert params["take"] == "1"
+
+
+@pytest.mark.asyncio
+async def test_domains_get_fails_when_missing(settings):
+    responses = {"/v1/domains/": {"status": 200, "data": []}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No domain found"):
+        await tools["domains_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_domains_count(settings):
+    responses = {"/v1/domains/count": {"data": 9}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["domains_count"](integrations_types=["cloudflare", "aws"])
+
+    assert result["data"] == 9
+    path, params = dummy.calls[0]
+    assert path == "/v1/domains/count"
+    assert params["where.integrationsTypes"] == "cloudflare,aws"
+
+
+@pytest.mark.asyncio
+async def test_domains_facets(settings):
+    responses = {
+        "/v1/domains/facets": {
+            "status": 200,
+            "data": {"edgeProtection": ["Protected"]},
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["domains_facets"](
+        fields=["edgeProtection"], roots=["example.com"]
+    )
+
+    assert result["data"]["edgeProtection"] == ["Protected"]
+    path, params = dummy.calls[0]
+    assert path == "/v1/domains/facets"
+    assert params["fields"] == "edgeProtection"
+    assert params["where.root"] == "example.com"
+
+
+@pytest.mark.asyncio
+async def test_cloud_resources_search(settings):
+    responses = {
+        "/v1/cloud-resources/": {
+            "status": 200,
+            "data": [{"id": "cr-1", "name": "orders-bucket", "cloudService": "s3"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["cloud_resources_search"](
+        cloud_services=["s3"],
+        resource_types=["Storage"],
+        is_ai_related=False,
+    )
+
+    assert result["data"][0]["name"] == "orders-bucket"
+    path, params = dummy.calls[0]
+    assert path == "/v1/cloud-resources/"
+    assert params["where.cloudService"] == "s3"
+    assert params["where.resourceType"] == "Storage"
+    assert params["where.isAiRelated"] == "false"
+    assert params["sort"] == "lastSeen,desc"
+
+
+@pytest.mark.asyncio
+async def test_cloud_resources_get_returns_result(settings):
+    responses = {
+        "/v1/cloud-resources/": {
+            "status": 200,
+            "data": [{"id": "cr-1", "name": "orders-bucket", "cloudService": "s3"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["cloud_resources_get"]("cr-1")
+
+    assert result["data"]["name"] == "orders-bucket"
+    _, params = dummy.calls[0]
+    assert params["where.id"] == "cr-1"
+    assert params["take"] == "1"
+
+
+@pytest.mark.asyncio
+async def test_cloud_resources_get_fails_when_missing(settings):
+    responses = {"/v1/cloud-resources/": {"status": 200, "data": []}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No cloud resource found"):
+        await tools["cloud_resources_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_cloud_resources_count(settings):
+    responses = {"/v1/cloud-resources/count": {"data": 6}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["cloud_resources_count"](cloud_services=["s3"])
+
+    assert result["data"] == 6
+    path, params = dummy.calls[0]
+    assert path == "/v1/cloud-resources/count"
+    assert params["where.cloudService"] == "s3"
+
+
+@pytest.mark.asyncio
+async def test_cloud_resources_facets(settings):
+    responses = {
+        "/v1/cloud-resources/facets": {
+            "status": 200,
+            "data": {"provider": ["AWS"]},
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["cloud_resources_facets"](
+        fields=["provider"], regions=["us-east-1"]
+    )
+
+    assert result["data"]["provider"] == ["AWS"]
+    path, params = dummy.calls[0]
+    assert path == "/v1/cloud-resources/facets"
+    assert params["fields"] == "provider"
+    assert params["where.region"] == "us-east-1"
+
+
+@pytest.mark.asyncio
 async def test_vulnerabilities_facets_boolean_serialization(settings):
     responses = {
         "/v1/vulnerabilities/facets": {
