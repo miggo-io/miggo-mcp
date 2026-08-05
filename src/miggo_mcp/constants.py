@@ -302,6 +302,7 @@ CloudResourceField = Literal[
     "cloudService",
     "isAiRelated",
     "lastSeen",
+    "createdAt",
     "updatedAt",
 ]
 

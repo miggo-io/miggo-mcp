@@ -559,6 +559,24 @@ async def test_domains_search(settings):
 
 
 @pytest.mark.asyncio
+async def test_domains_get_returns_result(settings):
+    responses = {
+        "/v1/domains/": {
+            "status": 200,
+            "data": [{"id": "dom-1", "name": "api.example.com", "root": "example.com"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["domains_get"]("dom-1")
+
+    assert result["data"]["name"] == "api.example.com"
+    _, params = dummy.calls[0]
+    assert params["where.id"] == "dom-1"
+    assert params["take"] == "1"
+
+
+@pytest.mark.asyncio
 async def test_domains_get_fails_when_missing(settings):
     responses = {"/v1/domains/": {"status": 200, "data": []}}
     tools, _ = make_toolset(settings, responses)
@@ -578,6 +596,27 @@ async def test_domains_count(settings):
     path, params = dummy.calls[0]
     assert path == "/v1/domains/count"
     assert params["where.integrationsTypes"] == "cloudflare,aws"
+
+
+@pytest.mark.asyncio
+async def test_domains_facets(settings):
+    responses = {
+        "/v1/domains/facets": {
+            "status": 200,
+            "data": {"edgeProtection": ["Protected"]},
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["domains_facets"](
+        fields=["edgeProtection"], roots=["example.com"]
+    )
+
+    assert result["data"]["edgeProtection"] == ["Protected"]
+    path, params = dummy.calls[0]
+    assert path == "/v1/domains/facets"
+    assert params["fields"] == "edgeProtection"
+    assert params["where.root"] == "example.com"
 
 
 @pytest.mark.asyncio
@@ -606,12 +645,43 @@ async def test_cloud_resources_search(settings):
 
 
 @pytest.mark.asyncio
+async def test_cloud_resources_get_returns_result(settings):
+    responses = {
+        "/v1/cloud-resources/": {
+            "status": 200,
+            "data": [{"id": "cr-1", "name": "orders-bucket", "cloudService": "s3"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["cloud_resources_get"]("cr-1")
+
+    assert result["data"]["name"] == "orders-bucket"
+    _, params = dummy.calls[0]
+    assert params["where.id"] == "cr-1"
+    assert params["take"] == "1"
+
+
+@pytest.mark.asyncio
 async def test_cloud_resources_get_fails_when_missing(settings):
     responses = {"/v1/cloud-resources/": {"status": 200, "data": []}}
     tools, _ = make_toolset(settings, responses)
 
     with pytest.raises(ValueError, match="No cloud resource found"):
         await tools["cloud_resources_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_cloud_resources_count(settings):
+    responses = {"/v1/cloud-resources/count": {"data": 6}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["cloud_resources_count"](cloud_services=["s3"])
+
+    assert result["data"] == 6
+    path, params = dummy.calls[0]
+    assert path == "/v1/cloud-resources/count"
+    assert params["where.cloudService"] == "s3"
 
 
 @pytest.mark.asyncio
