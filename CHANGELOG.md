@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/miggo-io/miggo-mcp/compare/v0.8.0...v0.8.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* COP-498 add domains and cloud resources tools ([#37](https://github.com/miggo-io/miggo-mcp/issues/37)) ([e14dd30](https://github.com/miggo-io/miggo-mcp/commit/e14dd30dfe31af2ea871b33c95fe3e1259f0dc49))
+
 ## [0.8.0](https://github.com/miggo-io/miggo-mcp/compare/v0.7.0...v0.8.0) (2026-07-28)
 
 
