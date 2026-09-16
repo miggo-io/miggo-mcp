@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import get_args
 
 import pytest
 
 from miggo_mcp.client import MiggoApiError
 from miggo_mcp.config import PublicServerSettings
-from miggo_mcp.constants import API_MAX_PAGE_SIZE
+from miggo_mcp.constants import (
+    ALL_SORT_FIELDS,
+    API_MAX_PAGE_SIZE,
+    EndpointField,
+    EndpointSortField,
+    ServiceField,
+    ServiceSortField,
+    ThirdPartyField,
+    ThirdPartySortField,
+)
 from miggo_mcp.tools import register_all_tools
 
 
@@ -92,11 +102,12 @@ async def test_services_count(settings):
     responses = {"/v1/services/count": {"data": 7}}
     tools, dummy = make_toolset(settings, responses)
 
-    result = await tools["services_count"](names=["foo"])
+    result = await tools["services_count"](names=["foo"], is_ai_related=False)
 
     assert result["data"] == 7
     _, params = dummy.calls[0]
     assert params["where.name"] == "foo"
+    assert params["where.isAiRelated"] == "false"
 
 
 @pytest.mark.asyncio
@@ -109,12 +120,15 @@ async def test_services_facets(settings):
     }
     tools, dummy = make_toolset(settings, responses)
 
-    result = await tools["services_facets"](fields=["risk"], search="svc")
+    result = await tools["services_facets"](
+        fields=["risk", "isAiRelated"], search="svc", is_ai_related=True
+    )
 
     assert result["data"]["risk"] == ["low"]
     _, params = dummy.calls[0]
-    assert params["fields"] == "risk"
+    assert params["fields"] == "risk,isAiRelated"
     assert params["search"] == "svc"
+    assert params["where.isAiRelated"] == "true"
 
 
 @pytest.mark.asyncio
@@ -317,6 +331,7 @@ async def test_endpoints_filters_encoding(settings):
     result = await tools["endpoints_search"](
         ids=["endpoint-1"],
         is_internet_facing=True,
+        is_ai_related=False,
         risk_scores=[0.5],
     )
 
@@ -324,6 +339,7 @@ async def test_endpoints_filters_encoding(settings):
     _, params = dummy.calls[0]
     assert params["where.id"] == "endpoint-1"
     assert params["where.isInternetFacing"] == "true"
+    assert params["where.isAiRelated"] == "false"
     assert params["where.risk"] == "0.5"
     assert params["skip"] == str(settings.default_skip)
     assert params["take"] == str(settings.default_take)
@@ -345,6 +361,100 @@ async def test_third_parties_get_returns_result(settings):
     _, params = dummy.calls[0]
     assert params["where.id"] == "tp-1"
     assert params["take"] == "1"
+
+
+@pytest.mark.asyncio
+async def test_services_search_ai_related_filter(settings):
+    responses = {"/v1/services/": {"status": 200, "data": [{"id": "svc-1"}]}}
+    tools, dummy = make_toolset(settings, responses)
+
+    await tools["services_search"](is_ai_related=True)
+
+    _, params = dummy.calls[0]
+    assert params["where.isAiRelated"] == "true"
+
+
+@pytest.mark.asyncio
+async def test_endpoints_count_ai_related_filter(settings):
+    responses = {"/v1/endpoints/count": {"data": 4}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["endpoints_count"](is_ai_related=True)
+
+    assert result["data"] == 4
+    _, params = dummy.calls[0]
+    assert params["where.isAiRelated"] == "true"
+
+
+@pytest.mark.asyncio
+async def test_endpoints_facets_ai_related(settings):
+    responses = {
+        "/v1/endpoints/facets": {"status": 200, "data": {"isAiRelated": ["true"]}}
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["endpoints_facets"](
+        fields=["isAiRelated"], is_ai_related=False
+    )
+
+    assert result["data"]["isAiRelated"] == ["true"]
+    _, params = dummy.calls[0]
+    assert params["fields"] == "isAiRelated"
+    assert params["where.isAiRelated"] == "false"
+
+
+@pytest.mark.asyncio
+async def test_third_parties_search_ai_related_filter(settings):
+    responses = {"/v1/third-parties/": {"status": 200, "data": [{"id": "tp-1"}]}}
+    tools, dummy = make_toolset(settings, responses)
+
+    await tools["third_parties_search"](domains=["example.com"], is_ai_related=False)
+
+    _, params = dummy.calls[0]
+    assert params["where.domain"] == "example.com"
+    assert params["where.isAiRelated"] == "false"
+
+
+@pytest.mark.asyncio
+async def test_third_parties_count_ai_related_filter(settings):
+    responses = {"/v1/third-parties/count": {"data": 2}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["third_parties_count"](is_ai_related=True)
+
+    assert result["data"] == 2
+    _, params = dummy.calls[0]
+    assert params["where.isAiRelated"] == "true"
+
+
+@pytest.mark.asyncio
+async def test_third_parties_facets_ai_related(settings):
+    responses = {
+        "/v1/third-parties/facets": {"status": 200, "data": {"isAiRelated": ["false"]}}
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["third_parties_facets"](
+        fields=["isAiRelated"], is_ai_related=True
+    )
+
+    assert result["data"]["isAiRelated"] == ["false"]
+    _, params = dummy.calls[0]
+    assert params["fields"] == "isAiRelated"
+    assert params["where.isAiRelated"] == "true"
+
+
+def test_ai_related_is_filterable_but_not_sortable():
+    """The Public API whitelists isAiRelated for filters and facets only."""
+    for facet_field, sort_field in (
+        (ServiceField, ServiceSortField),
+        (EndpointField, EndpointSortField),
+        (ThirdPartyField, ThirdPartySortField),
+    ):
+        assert "isAiRelated" in get_args(facet_field)
+        assert "isAiRelated" not in get_args(sort_field)
+
+    assert "isAiRelated" not in ALL_SORT_FIELDS
 
 
 @pytest.mark.asyncio
