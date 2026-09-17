@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/miggo-io/miggo-mcp/compare/v0.8.2...v0.9.0) (2026-09-17)
+
+
+### Features
+
+* PIP-1506 add is_ai_related filter to services, endpoints and third parties ([#41](https://github.com/miggo-io/miggo-mcp/issues/41)) ([b7f4eeb](https://github.com/miggo-io/miggo-mcp/commit/b7f4eebfbcf080fd7cc7c0474954d4b8b95ada7a))
+
 ## [0.8.2](https://github.com/miggo-io/miggo-mcp/compare/v0.8.1...v0.8.2) (2026-08-05)
 
 
