@@ -10,6 +10,22 @@ ServiceField = Literal[
     "isInternetFacing",
     "isThirdPartyCommunication",
     "isAuthenticated",
+    "isAiRelated",
+    "createdAt",
+    "updatedAt",
+    "technology",
+    "lastAccessed",
+    "risk",
+]
+
+# `isAiRelated` is filterable and facetable but not sortable, as on the other
+# entities that carry the flag.
+ServiceSortField = Literal[
+    "id",
+    "name",
+    "isInternetFacing",
+    "isThirdPartyCommunication",
+    "isAuthenticated",
     "createdAt",
     "updatedAt",
     "technology",
@@ -79,6 +95,24 @@ EndpointField = Literal[
     "isInternetFacing",
     "isAuthenticated",
     "isThirdPartyCommunication",
+    "isAiRelated",
+]
+
+# `isAiRelated` is filterable and facetable but not sortable.
+EndpointSortField = Literal[
+    "id",
+    "action",
+    "route",
+    "firstSeen",
+    "lastSeen",
+    "updatedAt",
+    "createdAt",
+    "risk",
+    "serviceId",
+    "dataSensitivity",
+    "isInternetFacing",
+    "isAuthenticated",
+    "isThirdPartyCommunication",
 ]
 
 ENDPOINT_FIELDS = [
@@ -100,6 +134,18 @@ ENDPOINT_FIELDS = [
 ENDPOINT_DEFAULT_SORT = [("risk", "desc")]
 
 ThirdPartyField = Literal[
+    "id",
+    "domain",
+    "firstSeen",
+    "lastSeen",
+    "createdAt",
+    "updatedAt",
+    "service",
+    "isAiRelated",
+]
+
+# `isAiRelated` is filterable and facetable but not sortable.
+ThirdPartySortField = Literal[
     "id",
     "domain",
     "firstSeen",
@@ -397,47 +443,50 @@ ALL_SORT_FIELDS = sorted(
 )
 
 __all__ = [
+    "ALL_SORT_FIELDS",
+    "API_MAX_PAGE_SIZE",
     "CLOUD_RESOURCE_DEFAULT_SORT",
     "CLOUD_RESOURCE_FIELDS",
     "CloudResourceField",
     "CloudResourceSortField",
-    "DOMAIN_DEFAULT_SORT",
-    "DOMAIN_FIELDS",
-    "DomainEdgeProtection",
-    "DomainField",
-    "DomainSortField",
     "DATA_SOURCE_DEFAULT_SORT",
     "DATA_SOURCE_FIELDS",
     "DATA_SOURCE_TABLE_DEFAULT_SORT",
     "DATA_SOURCE_TABLE_FIELDS",
+    "DEPENDENCY_DEFAULT_SORT",
+    "DEPENDENCY_FIELDS",
+    "DOMAIN_DEFAULT_SORT",
+    "DOMAIN_FIELDS",
+    "DOWNSTREAM_KINDS",
     "DataSourceField",
     "DataSourceSortField",
     "DataSourceTableField",
     "DataSourceTableSortField",
-    "DEPENDENCY_DEFAULT_SORT",
-    "DEPENDENCY_FIELDS",
     "DependencyField",
-    "DOWNSTREAM_KINDS",
+    "DomainEdgeProtection",
+    "DomainField",
+    "DomainSortField",
     "DownstreamKind",
     "DownstreamSortField",
-    "ALL_SORT_FIELDS",
     "ENDPOINT_DEFAULT_SORT",
     "ENDPOINT_FIELDS",
     "EndpointField",
+    "EndpointSortField",
     "FINDING_DEFAULT_SORT",
     "FINDING_FIELDS",
     "FindingField",
     "FindingSeverity",
     "FindingStatus",
     "FindingType",
-    "API_MAX_PAGE_SIZE",
     "MAX_PAGE_SIZE",
     "SERVICES_FIELDS",
     "ServiceField",
+    "ServiceSortField",
     "SortDirection",
     "THIRD_PARTY_DEFAULT_SORT",
     "THIRD_PARTY_FIELDS",
     "ThirdPartyField",
+    "ThirdPartySortField",
     "VULNERABILITY_DEFAULT_SORT",
     "VULNERABILITY_FIELDS",
     "VulnerabilityDependencyStatus",

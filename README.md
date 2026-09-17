@@ -203,7 +203,13 @@ uv run pre-commit install
 
 ### Release process
 
-We use [release-please](https://github.com/googleapis/release-please) to automate releases and version bumps. In normal operation, just review and merge the release PR that release-please opens. The workflow can also be triggered manually if needed.
+We use [release-please](https://github.com/googleapis/release-please) to automate releases and version bumps. To release an update to the MCP server:
+
+1. Merge the PR containing your changes into `main`.
+2. Wait for release-please to open or update a release PR with the version bump, then review and merge that PR as well. This triggers the release workflow to publish the new release and its MCPB bundle.
+3. For the Claude Desktop connector store, wait for Anthropic to pick up the new version automatically. This is not immediate: previous updates have taken several days, and the timing may vary.
+
+The release workflow can also be triggered manually if needed.
 
 ---
 

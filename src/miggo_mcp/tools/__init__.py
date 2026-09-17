@@ -36,13 +36,16 @@ from ..constants import (
     DownstreamKind,
     DownstreamSortField,
     EndpointField,
+    EndpointSortField,
     FindingField,
     FindingSeverity,
     FindingStatus,
     FindingType,
     ServiceField,
+    ServiceSortField,
     SortDirection,
     ThirdPartyField,
+    ThirdPartySortField,
     VulnerabilityDependencyStatus,
     VulnerabilityField,
     VulnerabilitySeverity,
@@ -142,11 +145,12 @@ def register_services_tools(
         is_internet_facing: bool | None = None,
         is_third_party_communication: bool | None = None,
         is_authenticated: bool | None = None,
+        is_ai_related: bool | None = None,
         technologies: Sequence[str] | None = None,
         risks: Sequence[str] | None = None,
         skip: Skip = None,
         take: Take = None,
-        sort: Sequence[tuple[ServiceField, SortDirection]] | None = None,
+        sort: Sequence[tuple[ServiceSortField, SortDirection]] | None = None,
     ) -> dict[str, object]:
         """Search for services in your Miggo environment. Use to get an
         overview of what's running and get a feel for what's available.
@@ -158,6 +162,7 @@ def register_services_tools(
         - isAuthenticated: requires auth flag (nullable)
         - type: resource type ("service")
         - isThirdPartyCommunication: connects to third parties
+        - isAiRelated: observed being used by an AI workload (nullable)
         - dataSensitivity: sensitivity tags (PII | PCI | PHI | SECRET | TOKEN)
         - createdAt: created timestamp
         - updatedAt: updated timestamp
@@ -174,6 +179,7 @@ def register_services_tools(
             isInternetFacing=is_internet_facing,
             isThirdPartyCommunication=is_third_party_communication,
             isAuthenticated=is_authenticated,
+            isAiRelated=is_ai_related,
             technology=technologies,
             risk=risks,
         )
@@ -226,6 +232,7 @@ def register_services_tools(
         is_internet_facing: bool | None = None,
         is_third_party_communication: bool | None = None,
         is_authenticated: bool | None = None,
+        is_ai_related: bool | None = None,
         technologies: Sequence[str] | None = None,
         risks: Sequence[str] | None = None,
     ) -> dict[str, object]:
@@ -242,6 +249,7 @@ def register_services_tools(
             isInternetFacing=is_internet_facing,
             isThirdPartyCommunication=is_third_party_communication,
             isAuthenticated=is_authenticated,
+            isAiRelated=is_ai_related,
             technology=technologies,
             risk=risks,
         )
@@ -261,11 +269,12 @@ def register_services_tools(
         is_internet_facing: bool | None = None,
         is_third_party_communication: bool | None = None,
         is_authenticated: bool | None = None,
+        is_ai_related: bool | None = None,
         technologies: Sequence[str] | None = None,
         risks: Sequence[str] | None = None,
         skip: Skip = None,
         take: Take = None,
-        sort: Sequence[tuple[ServiceField, SortDirection]] | None = None,
+        sort: Sequence[tuple[ServiceSortField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> dict[str, object]:
         """Get possible field values for service objects.
@@ -280,6 +289,7 @@ def register_services_tools(
             isInternetFacing=is_internet_facing,
             isThirdPartyCommunication=is_third_party_communication,
             isAuthenticated=is_authenticated,
+            isAiRelated=is_ai_related,
             technology=technologies,
             risk=risks,
         )
@@ -322,10 +332,11 @@ def register_endpoints_tools(
         is_internet_facing: bool | None = None,
         is_authenticated: bool | None = None,
         is_third_party_communication: bool | None = None,
+        is_ai_related: bool | None = None,
         risk_scores: Sequence[float] | None = None,
         skip: Skip = None,
         take: Take = None,
-        sort: Sequence[tuple[EndpointField, SortDirection]] | None = None,
+        sort: Sequence[tuple[EndpointSortField, SortDirection]] | None = None,
     ) -> dict[str, object]:
         """Search for endpoints in your Miggo environment. Use when more
         in-depth understanding of the environment is needed, or when looking
@@ -344,6 +355,7 @@ def register_endpoints_tools(
         - isInternetFacing: internet-exposed flag
         - isAuthenticated: requires auth flag
         - isThirdPartyCommunication: connects to third parties
+        - isAiRelated: observed being used by an AI workload (nullable)
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -355,6 +367,7 @@ def register_endpoints_tools(
             isInternetFacing=is_internet_facing,
             isAuthenticated=is_authenticated,
             isThirdPartyCommunication=is_third_party_communication,
+            isAiRelated=is_ai_related,
             risk=risk_scores,
         )
 
@@ -406,6 +419,7 @@ def register_endpoints_tools(
         is_internet_facing: bool | None = None,
         is_authenticated: bool | None = None,
         is_third_party_communication: bool | None = None,
+        is_ai_related: bool | None = None,
         risk_scores: Sequence[float] | None = None,
     ) -> dict[str, object]:
         """Count the number of endpoints matching the given filters.
@@ -422,6 +436,7 @@ def register_endpoints_tools(
             isInternetFacing=is_internet_facing,
             isAuthenticated=is_authenticated,
             isThirdPartyCommunication=is_third_party_communication,
+            isAiRelated=is_ai_related,
             risk=risk_scores,
         )
 
@@ -441,10 +456,11 @@ def register_endpoints_tools(
         is_internet_facing: bool | None = None,
         is_authenticated: bool | None = None,
         is_third_party_communication: bool | None = None,
+        is_ai_related: bool | None = None,
         risk_scores: Sequence[float] | None = None,
         skip: Skip = None,
         take: Take = None,
-        sort: Sequence[tuple[EndpointField, SortDirection]] | None = None,
+        sort: Sequence[tuple[EndpointSortField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> dict[str, object]:
         """Get possible field values for endpoint objects.
@@ -462,6 +478,7 @@ def register_endpoints_tools(
             isInternetFacing=is_internet_facing,
             isAuthenticated=is_authenticated,
             isThirdPartyCommunication=is_third_party_communication,
+            isAiRelated=is_ai_related,
             risk=risk_scores,
         )
 
@@ -498,9 +515,10 @@ def register_third_parties_tools(
         ids: Sequence[str] | None = None,
         domains: Sequence[str] | None = None,
         service_names: Sequence[str] | None = None,
+        is_ai_related: bool | None = None,
         skip: Skip = None,
         take: Take = None,
-        sort: Sequence[tuple[ThirdPartyField, SortDirection]] | None = None,
+        sort: Sequence[tuple[ThirdPartySortField, SortDirection]] | None = None,
     ) -> dict[str, object]:
         """Search for third-parties in your Miggo environment. These are
         services external to the environment, like SaaS vendors. Use when
@@ -511,12 +529,14 @@ def register_third_parties_tools(
         - type: resource type ("third-party")
         - domain: third-party domain
         - service: which service calls this third party
+        - isAiRelated: observed being used by an AI workload (nullable)
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
             id=ids,
             domain=domains,
             service=service_names,
+            isAiRelated=is_ai_related,
         )
 
         sort_params = _resolve_sort(sort, THIRD_PARTY_DEFAULT_SORT)
@@ -562,6 +582,7 @@ def register_third_parties_tools(
         ids: Sequence[str] | None = None,
         domains: Sequence[str] | None = None,
         service_names: Sequence[str] | None = None,
+        is_ai_related: bool | None = None,
     ) -> dict[str, object]:
         """Count the number of third-parties matching the given filters.
 
@@ -572,6 +593,7 @@ def register_third_parties_tools(
             id=ids,
             domain=domains,
             service=service_names,
+            isAiRelated=is_ai_related,
         )
 
         params = compose_params(filters=filters)
@@ -585,9 +607,10 @@ def register_third_parties_tools(
         ids: Sequence[str] | None = None,
         domains: Sequence[str] | None = None,
         service_names: Sequence[str] | None = None,
+        is_ai_related: bool | None = None,
         skip: Skip = None,
         take: Take = None,
-        sort: Sequence[tuple[ThirdPartyField, SortDirection]] | None = None,
+        sort: Sequence[tuple[ThirdPartySortField, SortDirection]] | None = None,
         search: Annotated[str | None, Field(min_length=1)] = None,
     ) -> dict[str, object]:
         """Get possible field values for third-party objects.
@@ -600,6 +623,7 @@ def register_third_parties_tools(
             id=ids,
             domain=domains,
             service=service_names,
+            isAiRelated=is_ai_related,
         )
 
         params = compose_params(
