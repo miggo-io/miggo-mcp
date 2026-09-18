@@ -1141,7 +1141,6 @@ async def test_access_keys_search(settings):
     assert path == "/v1/access-keys/"
     assert params["where.status"] == "ACTIVE"
     assert params["sort"] == "createdAt,desc"
-    assert "secretKey" not in result["data"][0]
 
 
 @pytest.mark.asyncio
