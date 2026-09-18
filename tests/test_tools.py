@@ -855,6 +855,332 @@ async def test_project_get(settings):
 
 
 @pytest.mark.asyncio
+async def test_connectors_search(settings):
+    responses = {
+        "/v1/connectors/": {
+            "status": 200,
+            "data": [{"id": "conn-1", "system": "datadog", "category": "APM"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["connectors_search"](systems=["datadog"], statuses=["active"])
+
+    assert result["data"][0]["system"] == "datadog"
+    path, params = dummy.calls[0]
+    assert path == "/v1/connectors/"
+    assert params["where.system"] == "datadog"
+    assert params["where.status"] == "active"
+    assert params["sort"] == "createdAt,desc"
+
+
+@pytest.mark.asyncio
+async def test_connectors_get_fails_when_missing(settings):
+    responses = {"/v1/connectors/": {"status": 200, "data": []}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No connector found"):
+        await tools["connectors_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_connectors_count(settings):
+    responses = {"/v1/connectors/count": {"data": 3}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["connectors_count"](ids=["conn-1"])
+
+    assert result["data"] == 3
+    path, params = dummy.calls[0]
+    assert path == "/v1/connectors/count"
+    assert params["where.id"] == "conn-1"
+
+
+@pytest.mark.asyncio
+async def test_connectors_facets(settings):
+    responses = {
+        "/v1/connectors/facets": {"status": 200, "data": {"system": ["datadog"]}}
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["connectors_facets"](fields=["system"])
+
+    assert result["data"]["system"] == ["datadog"]
+    path, params = dummy.calls[0]
+    assert path == "/v1/connectors/facets"
+    assert params["fields"] == "system"
+
+
+@pytest.mark.asyncio
+async def test_notification_channels_search(settings):
+    responses = {
+        "/v1/notification-channels/": {
+            "status": 200,
+            "data": [{"id": "nc-1", "system": "slack", "category": "NOTIFICATIONS"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["notification_channels_search"](systems=["slack"])
+
+    assert result["data"][0]["system"] == "slack"
+    path, params = dummy.calls[0]
+    assert path == "/v1/notification-channels/"
+    assert params["where.system"] == "slack"
+
+
+@pytest.mark.asyncio
+async def test_notification_channels_get_returns_result(settings):
+    responses = {
+        "/v1/notification-channels/": {
+            "status": 200,
+            "data": [{"id": "nc-1", "system": "slack"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["notification_channels_get"]("nc-1")
+
+    assert result["data"]["system"] == "slack"
+    _, params = dummy.calls[0]
+    assert params["where.id"] == "nc-1"
+    assert params["take"] == "1"
+
+
+@pytest.mark.asyncio
+async def test_notification_channels_count(settings):
+    responses = {"/v1/notification-channels/count": {"data": 2}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["notification_channels_count"](statuses=["deactivated"])
+
+    assert result["data"] == 2
+    _, params = dummy.calls[0]
+    assert params["where.status"] == "deactivated"
+
+
+@pytest.mark.asyncio
+async def test_ticketing_integrations_search(settings):
+    responses = {
+        "/v1/ticketing-integrations/": {
+            "status": 200,
+            "data": [
+                {
+                    "id": "ti-1",
+                    "system": "jira",
+                    "configParams": {"defaultProject": "OPS"},
+                }
+            ],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["ticketing_integrations_search"](names=["Jira Prod"])
+
+    assert result["data"][0]["configParams"]["defaultProject"] == "OPS"
+    path, params = dummy.calls[0]
+    assert path == "/v1/ticketing-integrations/"
+    assert params["where.name"] == "Jira Prod"
+
+
+@pytest.mark.asyncio
+async def test_ticketing_integrations_get_fails_when_missing(settings):
+    responses = {"/v1/ticketing-integrations/": {"status": 200, "data": []}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No ticketing integration found"):
+        await tools["ticketing_integrations_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_ticketing_integrations_facets(settings):
+    responses = {
+        "/v1/ticketing-integrations/facets": {
+            "status": 200,
+            "data": {"status": ["active"]},
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["ticketing_integrations_facets"](fields=["status"])
+
+    assert result["data"]["status"] == ["active"]
+    path, params = dummy.calls[0]
+    assert path == "/v1/ticketing-integrations/facets"
+    assert params["fields"] == "status"
+
+
+@pytest.mark.asyncio
+async def test_sensors_search(settings):
+    responses = {
+        "/v1/sensors/": {
+            "status": 200,
+            "data": [{"id": "sensor-1", "name": "agent", "status": "active"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["sensors_search"](
+        sensor_types=["daemonset"], statuses=["active"]
+    )
+
+    assert result["data"][0]["status"] == "active"
+    path, params = dummy.calls[0]
+    assert path == "/v1/sensors/"
+    assert params["where.sensorType"] == "daemonset"
+    assert params["where.status"] == "active"
+    assert params["sort"] == "status,asc,updatedAt,desc"
+
+
+@pytest.mark.asyncio
+async def test_sensors_get_fails_when_missing(settings):
+    responses = {"/v1/sensors/": {"status": 200, "data": []}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No sensor found"):
+        await tools["sensors_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_sensors_count(settings):
+    responses = {"/v1/sensors/count": {"data": 5}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["sensors_count"](systems=["kubernetes"])
+
+    assert result["data"] == 5
+    _, params = dummy.calls[0]
+    assert params["where.system"] == "kubernetes"
+
+
+@pytest.mark.asyncio
+async def test_sensors_facets(settings):
+    responses = {
+        "/v1/sensors/facets": {"status": 200, "data": {"status": ["disconnected"]}}
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["sensors_facets"](fields=["status"])
+
+    assert result["data"]["status"] == ["disconnected"]
+    path, params = dummy.calls[0]
+    assert path == "/v1/sensors/facets"
+    assert params["fields"] == "status"
+
+
+@pytest.mark.asyncio
+async def test_sensor_nodes_search(settings):
+    responses = {
+        "/v1/sensors/nodes/": {
+            "status": 200,
+            "data": [{"id": "node-1", "node": "ip-10-0-0-1", "status": "disconnected"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["sensor_nodes_search"](nodes=["ip-10-0-0-1"])
+
+    assert result["data"][0]["node"] == "ip-10-0-0-1"
+    path, params = dummy.calls[0]
+    assert path == "/v1/sensors/nodes/"
+    assert params["where.node"] == "ip-10-0-0-1"
+    assert params["sort"] == "status,asc,updatedAt,desc"
+
+
+@pytest.mark.asyncio
+async def test_sensor_nodes_get_fails_when_missing(settings):
+    responses = {"/v1/sensors/nodes/": {"status": 200, "data": []}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No sensor node found"):
+        await tools["sensor_nodes_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_sensor_nodes_count(settings):
+    responses = {"/v1/sensors/nodes/count": {"data": 8}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["sensor_nodes_count"](statuses=["active"])
+
+    assert result["data"] == 8
+    path, params = dummy.calls[0]
+    assert path == "/v1/sensors/nodes/count"
+    assert params["where.status"] == "active"
+
+
+@pytest.mark.asyncio
+async def test_sensor_nodes_facets(settings):
+    responses = {
+        "/v1/sensors/nodes/facets": {"status": 200, "data": {"system": ["kubernetes"]}}
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["sensor_nodes_facets"](fields=["system"])
+
+    assert result["data"]["system"] == ["kubernetes"]
+    path, params = dummy.calls[0]
+    assert path == "/v1/sensors/nodes/facets"
+    assert params["fields"] == "system"
+
+
+@pytest.mark.asyncio
+async def test_access_keys_search(settings):
+    responses = {
+        "/v1/access-keys/": {
+            "status": 200,
+            "data": [{"id": "ak-1", "name": "ci-key", "status": "ACTIVE"}],
+        }
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["access_keys_search"](statuses=["ACTIVE"])
+
+    assert result["data"][0]["name"] == "ci-key"
+    path, params = dummy.calls[0]
+    assert path == "/v1/access-keys/"
+    assert params["where.status"] == "ACTIVE"
+    assert params["sort"] == "createdAt,desc"
+    assert "secretKey" not in result["data"][0]
+
+
+@pytest.mark.asyncio
+async def test_access_keys_get_fails_when_missing(settings):
+    responses = {"/v1/access-keys/": {"status": 200, "data": []}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No access key found"):
+        await tools["access_keys_get"]("unknown")
+
+
+@pytest.mark.asyncio
+async def test_access_keys_count(settings):
+    responses = {"/v1/access-keys/count": {"data": 1}}
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["access_keys_count"](names=["ci-key"])
+
+    assert result["data"] == 1
+    _, params = dummy.calls[0]
+    assert params["where.name"] == "ci-key"
+
+
+@pytest.mark.asyncio
+async def test_access_keys_facets(settings):
+    responses = {
+        "/v1/access-keys/facets": {"status": 200, "data": {"status": ["ACTIVE"]}}
+    }
+    tools, dummy = make_toolset(settings, responses)
+
+    result = await tools["access_keys_facets"](fields=["status"])
+
+    assert result["data"]["status"] == ["ACTIVE"]
+    path, params = dummy.calls[0]
+    assert path == "/v1/access-keys/facets"
+    assert params["fields"] == "status"
+
+
+@pytest.mark.asyncio
 async def test_services_list_number_parameters(settings):
     """Test that number parameters work correctly."""
     responses = {
