@@ -376,6 +376,133 @@ CLOUD_RESOURCE_FIELDS = [
 
 CLOUD_RESOURCE_DEFAULT_SORT = [("lastSeen", "desc")]
 
+# Connectors, notification-channels, and ticketing-integrations all return the
+# same `tenantIntegrationPublicApi` shape and share one filter/sort whitelist;
+# they differ only in which integration `category` the API pins server-side
+# per route (category itself is neither filterable nor sortable).
+IntegrationField = Literal[
+    "id",
+    "name",
+    "system",
+    "status",
+    "lastExecutedAt",
+    "createdAt",
+]
+
+IntegrationSortField = Literal[
+    "name",
+    "system",
+    "status",
+    "createdAt",
+    "updatedAt",
+    "lastExecutedAt",
+]
+
+IntegrationStatus = Literal["active", "pending", "errored", "deactivated"]
+
+INTEGRATION_FIELDS = [
+    "name",
+    "system",
+    "status",
+    "createdAt",
+    "updatedAt",
+    "lastExecutedAt",
+]
+
+INTEGRATION_DEFAULT_SORT = [("createdAt", "desc")]
+
+SensorField = Literal[
+    "id",
+    "name",
+    "createdAt",
+    "status",
+    "system",
+    "sensorType",
+]
+
+SensorSortField = Literal[
+    "name",
+    "status",
+    "system",
+    "createdAt",
+    "updatedAt",
+    "sensorType",
+    "version",
+]
+
+# Computed from staleness relative to `updatedAt`, not a raw DB value; see
+# sensors_search's docstring for the thresholds.
+SensorStatus = Literal[
+    "active",
+    "pending",
+    "error",
+    "not_responding",
+    "inactive",
+    "disconnected",
+]
+
+SENSOR_FIELDS = [
+    "name",
+    "status",
+    "system",
+    "createdAt",
+    "updatedAt",
+    "sensorType",
+    "version",
+]
+
+SENSOR_DEFAULT_SORT = [("status", "asc"), ("updatedAt", "desc")]
+
+SensorNodeField = Literal[
+    "id",
+    "name",
+    "node",
+    "system",
+    "sensorType",
+    "status",
+]
+
+SensorNodeSortField = Literal[
+    "name",
+    "node",
+    "status",
+    "system",
+    "sensorType",
+    "createdAt",
+    "updatedAt",
+]
+
+SENSOR_NODE_FIELDS = [
+    "name",
+    "node",
+    "status",
+    "system",
+    "sensorType",
+    "createdAt",
+    "updatedAt",
+]
+
+SENSOR_NODE_DEFAULT_SORT = [("status", "asc"), ("updatedAt", "desc")]
+
+AccessKeyField = Literal["id", "name", "status", "createdAt"]
+
+AccessKeySortField = Literal["name", "status", "createdAt"]
+
+AccessKeyStatus = Literal["ACTIVE", "INACTIVE", "DELETED", "SUSPENDED"]
+
+# Selectable but neither filterable nor sortable on this endpoint.
+TenantStatus = Literal[
+    "ACTIVE",
+    "SUSPENDED",
+    "SUSPENDED_NO_INGESTION",
+    "PENDING_DELETION",
+    "DELETED",
+]
+
+ACCESS_KEY_FIELDS = ["name", "status", "createdAt"]
+
+ACCESS_KEY_DEFAULT_SORT = [("createdAt", "desc")]
+
 # Service downstream sub-resources. All are filtered by a single required
 # serviceId and share the get/count pagination shape, so one tool dispatches
 # over them by ``kind`` rather than four near-identical tool families.
@@ -439,12 +566,21 @@ ALL_SORT_FIELDS = sorted(
         *DATA_SOURCE_TABLE_FIELDS,
         *DOMAIN_FIELDS,
         *CLOUD_RESOURCE_FIELDS,
+        *INTEGRATION_FIELDS,
+        *SENSOR_FIELDS,
+        *SENSOR_NODE_FIELDS,
+        *ACCESS_KEY_FIELDS,
     }
 )
 
 __all__ = [
+    "ACCESS_KEY_DEFAULT_SORT",
+    "ACCESS_KEY_FIELDS",
     "ALL_SORT_FIELDS",
     "API_MAX_PAGE_SIZE",
+    "AccessKeyField",
+    "AccessKeySortField",
+    "AccessKeyStatus",
     "CLOUD_RESOURCE_DEFAULT_SORT",
     "CLOUD_RESOURCE_FIELDS",
     "CloudResourceField",
@@ -478,13 +614,28 @@ __all__ = [
     "FindingSeverity",
     "FindingStatus",
     "FindingType",
+    "INTEGRATION_DEFAULT_SORT",
+    "INTEGRATION_FIELDS",
+    "IntegrationField",
+    "IntegrationSortField",
+    "IntegrationStatus",
     "MAX_PAGE_SIZE",
+    "SENSOR_DEFAULT_SORT",
+    "SENSOR_FIELDS",
+    "SENSOR_NODE_DEFAULT_SORT",
+    "SENSOR_NODE_FIELDS",
     "SERVICES_FIELDS",
+    "SensorField",
+    "SensorNodeField",
+    "SensorNodeSortField",
+    "SensorSortField",
+    "SensorStatus",
     "ServiceField",
     "ServiceSortField",
     "SortDirection",
     "THIRD_PARTY_DEFAULT_SORT",
     "THIRD_PARTY_FIELDS",
+    "TenantStatus",
     "ThirdPartyField",
     "ThirdPartySortField",
     "VULNERABILITY_DEFAULT_SORT",
