@@ -12,6 +12,7 @@ from pydantic import BeforeValidator, Field, WithJsonSchema
 from ..client import MiggoPublicClient
 from ..config import PublicServerSettings
 from ..constants import (
+    ACCESS_KEY_DEFAULT_SORT,
     API_MAX_PAGE_SIZE,
     CLOUD_RESOURCE_DEFAULT_SORT,
     DATA_SOURCE_DEFAULT_SORT,
@@ -21,9 +22,15 @@ from ..constants import (
     DOWNSTREAM_KINDS,
     ENDPOINT_DEFAULT_SORT,
     FINDING_DEFAULT_SORT,
+    INTEGRATION_DEFAULT_SORT,
     MAX_PAGE_SIZE,
+    SENSOR_DEFAULT_SORT,
+    SENSOR_NODE_DEFAULT_SORT,
     THIRD_PARTY_DEFAULT_SORT,
     VULNERABILITY_DEFAULT_SORT,
+    AccessKeyField,
+    AccessKeySortField,
+    AccessKeyStatus,
     CloudResourceField,
     CloudResourceSortField,
     DataSourceField,
@@ -41,6 +48,14 @@ from ..constants import (
     FindingSeverity,
     FindingStatus,
     FindingType,
+    IntegrationField,
+    IntegrationSortField,
+    IntegrationStatus,
+    SensorField,
+    SensorNodeField,
+    SensorNodeSortField,
+    SensorSortField,
+    SensorStatus,
     ServiceField,
     ServiceSortField,
     SortDirection,
@@ -126,6 +141,12 @@ def register_all_tools(
     tools.update(register_domains_tools(server, settings, client))
     tools.update(register_cloud_resources_tools(server, settings, client))
     tools.update(register_project_tools(server, settings, client))
+    tools.update(register_connectors_tools(server, settings, client))
+    tools.update(register_notification_channels_tools(server, settings, client))
+    tools.update(register_ticketing_integrations_tools(server, settings, client))
+    tools.update(register_sensors_tools(server, settings, client))
+    tools.update(register_sensor_nodes_tools(server, settings, client))
+    tools.update(register_access_keys_tools(server, settings, client))
     return tools
 
 
@@ -1917,6 +1938,743 @@ def register_project_tools(
     return {"project_get": project_get}
 
 
+def _register_integration_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+    *,
+    prefix: str,
+    path: str,
+    resource_label: str,
+    purpose: str,
+    category_note: str,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register search/get/count/facets tools for one fixed-category integration route.
+
+    Connectors, notification-channels, and ticketing-integrations all return
+    the same ``tenantIntegrationPublicApi`` shape and share one filter/sort
+    whitelist; the API pins ``category`` per route server-side, so it is
+    neither filterable, sortable, nor exposed as a tool parameter here.
+    """
+
+    def build_filters(
+        ids: Sequence[str] | None,
+        names: Sequence[str] | None,
+        systems: Sequence[str] | None,
+        statuses: Sequence[IntegrationStatus] | None,
+        last_executed_at: Sequence[float] | None,
+        created_at: Sequence[float] | None,
+    ) -> dict[str, list[object]]:
+        return _build_where_filters(
+            id=ids,
+            name=names,
+            system=systems,
+            status=statuses,
+            lastExecutedAt=last_executed_at,
+            createdAt=created_at,
+        )
+
+    async def search(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        statuses: Sequence[IntegrationStatus] | None = None,
+        last_executed_at: Sequence[float] | None = None,
+        created_at: Sequence[float] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[IntegrationSortField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        paging = _resolve_paging(skip, take, settings)
+        filters = build_filters(
+            ids, names, systems, statuses, last_executed_at, created_at
+        )
+
+        payload = await _fetch_collection_pages(
+            client,
+            path,
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, INTEGRATION_DEFAULT_SORT),
+        )
+        return collection_response(payload)
+
+    async def get(
+        integration_id: Annotated[str, Field(min_length=1)],
+    ) -> dict[str, object]:
+        params = compose_params(
+            filters={"id": [integration_id]},
+            take=1,
+            sort=_resolve_sort(None, INTEGRATION_DEFAULT_SORT),
+        )
+        payload = await client.get(path, params=params)
+
+        items = payload.get("data") or []
+        if not items:
+            raise ValueError(f"No {resource_label} found for id {integration_id!r}")
+
+        response = {"data": items[0]}
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta:
+            response["meta"] = meta
+        return response
+
+    async def count(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        statuses: Sequence[IntegrationStatus] | None = None,
+        last_executed_at: Sequence[float] | None = None,
+        created_at: Sequence[float] | None = None,
+    ) -> dict[str, object]:
+        filters = build_filters(
+            ids, names, systems, statuses, last_executed_at, created_at
+        )
+        params = compose_params(filters=filters)
+        payload = await client.get(f"{path}count", params=params)
+        return scalar_response(payload)
+
+    async def facets(
+        *,
+        fields: Sequence[IntegrationField] | None = None,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        statuses: Sequence[IntegrationStatus] | None = None,
+        last_executed_at: Sequence[float] | None = None,
+        created_at: Sequence[float] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[IntegrationSortField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        paging = _resolve_paging(skip, take, settings)
+        filters = build_filters(
+            ids, names, systems, statuses, last_executed_at, created_at
+        )
+
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, INTEGRATION_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get(f"{path}facets", params=params)
+        return collection_response(payload)
+
+    search.__name__ = f"{prefix}_search"
+    get.__name__ = f"{prefix}_get"
+    count.__name__ = f"{prefix}_count"
+    facets.__name__ = f"{prefix}_facets"
+
+    search.__doc__ = (
+        f"{purpose}\n\n"
+        f"{category_note}\n\n"
+        "Data fields:\n"
+        "- id: integration ID\n"
+        "- name: display name\n"
+        "- system: integration system identifier, e.g. 'datadog', 'jira', 'slack'\n"
+        "- category: fixed integration category for this tool (see above); not\n"
+        "  filterable or sortable\n"
+        "- status: live status (active | pending | errored | deactivated, nullable)\n"
+        "- lastExecutedAt: last execution timestamp, epoch ms (nullable)\n"
+        "- createdBy: creator identifier\n"
+        "- createdAt / updatedAt: timestamps, epoch ms\n"
+        "- errorDetails: error details when status is errored (nullable)\n"
+        "- configParams: integration-specific configuration, e.g. a ticketing\n"
+        "  integration's default project (object)"
+    )
+    get.__doc__ = (
+        f"Fetch a single {resource_label} by id.\n\n"
+        "Returns:\n"
+        "- data: integration object (see fields listed in the search tool)"
+    )
+    count.__doc__ = (
+        f"Count {resource_label}s matching filters.\n\n"
+        "Returns:\n"
+        "- data: integer total count"
+    )
+    facets.__doc__ = (
+        f"Get possible field values for {resource_label} objects.\n\n"
+        "Returns:\n"
+        "- data: object mapping fieldName -> list of string values"
+    )
+
+    search = server.tool(name=f"{prefix}_search", annotations=_READ_ONLY_ANNOTATIONS)(
+        search
+    )
+    get = server.tool(name=f"{prefix}_get", annotations=_READ_ONLY_ANNOTATIONS)(get)
+    count = server.tool(name=f"{prefix}_count", annotations=_READ_ONLY_ANNOTATIONS)(
+        count
+    )
+    facets = server.tool(name=f"{prefix}_facets", annotations=_READ_ONLY_ANNOTATIONS)(
+        facets
+    )
+
+    return {
+        f"{prefix}_search": search,
+        f"{prefix}_get": get,
+        f"{prefix}_count": count,
+        f"{prefix}_facets": facets,
+    }
+
+
+def register_connectors_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for agentless connector integrations."""
+    return _register_integration_tools(
+        server,
+        settings,
+        client,
+        prefix="connectors",
+        path="/v1/connectors/",
+        resource_label="connector",
+        purpose=(
+            "Search the agentless connectors configured for your Miggo tenant "
+            "(cloud provider, APM/telemetry, edge protection, and CNAPP "
+            "integrations). Use to confirm every intended connector is live."
+        ),
+        category_note=(
+            "This tool only ever returns category APM | EDGE_PROTECTION | "
+            "CLOUD_PROVIDER | CNAPP. Example systems: 'amazon-aws', "
+            "'google-cloud', 'azure-cloud' (CLOUD_PROVIDER); 'cloudflare', "
+            "'akamai' (EDGE_PROTECTION); 'datadog', 'newrelic', "
+            "'opentelemetry' (APM); 'wiz' (CNAPP)."
+        ),
+    )
+
+
+def register_notification_channels_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for notification-channel integrations."""
+    return _register_integration_tools(
+        server,
+        settings,
+        client,
+        prefix="notification_channels",
+        path="/v1/notification-channels/",
+        resource_label="notification channel",
+        purpose=(
+            "Search the notification-channel integrations connected for your "
+            "Miggo tenant (Slack, Microsoft Teams, Webhook)."
+        ),
+        category_note=(
+            "This tool only ever returns category NOTIFICATIONS. Example "
+            "systems: 'slack', 'microsoft-teams', 'webhook'."
+        ),
+    )
+
+
+def register_ticketing_integrations_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for ticketing integrations."""
+    return _register_integration_tools(
+        server,
+        settings,
+        client,
+        prefix="ticketing_integrations",
+        path="/v1/ticketing-integrations/",
+        resource_label="ticketing integration",
+        purpose=(
+            "Search the ticketing integrations configured for your Miggo "
+            "tenant (for example, outbound Jira), including configParams "
+            "(such as the default project) to confirm they point at the "
+            "right project."
+        ),
+        category_note=(
+            "This tool only ever returns category TICKETING. Example system: 'jira'."
+        ),
+    )
+
+
+def register_sensors_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for aggregated sensor inventory."""
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def sensors_search(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        sensor_types: Sequence[str] | None = None,
+        statuses: Sequence[SensorStatus] | None = None,
+        created_at: Sequence[float] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[SensorSortField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search the sensors deployed for your Miggo tenant, aggregated by
+        name, system, and sensor type, each with a computed, staleness-aware
+        current status. Use ``sensor_nodes_search`` for the individual node
+        instances backing each sensor.
+
+        Data fields:
+        - id: an ID from within the group (not stable across groupings)
+        - name: sensor name
+        - system: sensor system, e.g. 'kubernetes' (default)
+        - sensorType: sensor type
+        - version: latest observed version within the group (nullable)
+        - versionReleaseDate: release timestamp of that version, epoch ms
+          (nullable)
+        - status: current status computed from time elapsed since the most
+          recently updated node in the group — active | pending | error |
+          not_responding | inactive | disconnected (nullable). Not a
+          self-reported value; it reflects live staleness against the same
+          thresholds used by the Miggo UI.
+        - createdAt: earliest createdAt in the group, epoch ms
+        - updatedAt: latest updatedAt in the group, epoch ms
+
+        Note: groups where every node has been silent for 7+ days are
+        excluded entirely from this aggregated view (they still show up
+        individually, as disconnected, via ``sensor_nodes_search``).
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            system=systems,
+            sensorType=sensor_types,
+            status=statuses,
+            createdAt=created_at,
+        )
+
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/sensors/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, SENSOR_DEFAULT_SORT),
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def sensors_get(
+        sensor_id: Annotated[str, Field(min_length=1)],
+    ) -> dict[str, object]:
+        """Fetch a single aggregated sensor group by id.
+
+        Returns:
+        - data: sensor object (see fields listed in sensors_search)
+        """
+        params = compose_params(
+            filters={"id": [sensor_id]},
+            take=1,
+            sort=_resolve_sort(None, SENSOR_DEFAULT_SORT),
+        )
+        payload = await client.get("/v1/sensors/", params=params)
+
+        sensors = payload.get("data") or []
+        if not sensors:
+            raise ValueError(f"No sensor found for id {sensor_id!r}")
+
+        response = {"data": sensors[0]}
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta:
+            response["meta"] = meta
+        return response
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def sensors_count(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        sensor_types: Sequence[str] | None = None,
+        statuses: Sequence[SensorStatus] | None = None,
+        created_at: Sequence[float] | None = None,
+    ) -> dict[str, object]:
+        """Count aggregated sensor groups matching filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            system=systems,
+            sensorType=sensor_types,
+            status=statuses,
+            createdAt=created_at,
+        )
+        params = compose_params(filters=filters)
+        payload = await client.get("/v1/sensors/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def sensors_facets(
+        *,
+        fields: Sequence[SensorField] | None = None,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        sensor_types: Sequence[str] | None = None,
+        statuses: Sequence[SensorStatus] | None = None,
+        created_at: Sequence[float] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[SensorSortField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for aggregated sensor objects.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            system=systems,
+            sensorType=sensor_types,
+            status=statuses,
+            createdAt=created_at,
+        )
+
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, SENSOR_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get("/v1/sensors/facets", params=params)
+        return collection_response(payload)
+
+    return {
+        "sensors_search": sensors_search,
+        "sensors_get": sensors_get,
+        "sensors_count": sensors_count,
+        "sensors_facets": sensors_facets,
+    }
+
+
+def register_sensor_nodes_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for individual sensor node instances."""
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def sensor_nodes_search(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        nodes: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        sensor_types: Sequence[str] | None = None,
+        statuses: Sequence[SensorStatus] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[SensorNodeSortField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search the individual sensor node instances deployed for your
+        Miggo tenant. Use this to diff sensor coverage against your own node
+        inventory, or to drill from an aggregated ``sensors_search`` group
+        into its actual nodes.
+
+        Data fields:
+        - id: node ID
+        - name: sensor name this node belongs to
+        - node: this node's hostname/identifier
+        - system: sensor system, e.g. 'kubernetes'
+        - sensorType: sensor type
+        - status: this node's current status, computed from time elapsed
+          since its own last update — active | pending | error |
+          not_responding | inactive | disconnected. Not a self-reported
+          value; it reflects live staleness against the same thresholds used
+          by the Miggo UI.
+        - createdAt / updatedAt: timestamps, epoch ms
+
+        Note: unlike ``sensors_search``, nodes silent for 7+ days remain
+        visible here individually, with status 'disconnected'.
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            node=nodes,
+            system=systems,
+            sensorType=sensor_types,
+            status=statuses,
+        )
+
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/sensors/nodes/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, SENSOR_NODE_DEFAULT_SORT),
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def sensor_nodes_get(
+        node_id: Annotated[str, Field(min_length=1)],
+    ) -> dict[str, object]:
+        """Fetch a single sensor node instance by id.
+
+        Returns:
+        - data: sensor node object (see fields listed in sensor_nodes_search)
+        """
+        params = compose_params(
+            filters={"id": [node_id]},
+            take=1,
+            sort=_resolve_sort(None, SENSOR_NODE_DEFAULT_SORT),
+        )
+        payload = await client.get("/v1/sensors/nodes/", params=params)
+
+        nodes = payload.get("data") or []
+        if not nodes:
+            raise ValueError(f"No sensor node found for id {node_id!r}")
+
+        response = {"data": nodes[0]}
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta:
+            response["meta"] = meta
+        return response
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def sensor_nodes_count(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        nodes: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        sensor_types: Sequence[str] | None = None,
+        statuses: Sequence[SensorStatus] | None = None,
+    ) -> dict[str, object]:
+        """Count sensor node instances matching filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            node=nodes,
+            system=systems,
+            sensorType=sensor_types,
+            status=statuses,
+        )
+        params = compose_params(filters=filters)
+        payload = await client.get("/v1/sensors/nodes/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def sensor_nodes_facets(
+        *,
+        fields: Sequence[SensorNodeField] | None = None,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        nodes: Sequence[str] | None = None,
+        systems: Sequence[str] | None = None,
+        sensor_types: Sequence[str] | None = None,
+        statuses: Sequence[SensorStatus] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[SensorNodeSortField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for sensor node objects.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            node=nodes,
+            system=systems,
+            sensorType=sensor_types,
+            status=statuses,
+        )
+
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, SENSOR_NODE_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get("/v1/sensors/nodes/facets", params=params)
+        return collection_response(payload)
+
+    return {
+        "sensor_nodes_search": sensor_nodes_search,
+        "sensor_nodes_get": sensor_nodes_get,
+        "sensor_nodes_count": sensor_nodes_count,
+        "sensor_nodes_facets": sensor_nodes_facets,
+    }
+
+
+def register_access_keys_tools(
+    server: FastMCP,
+    settings: PublicServerSettings,
+    client: MiggoPublicClient,
+) -> dict[str, Callable[..., Awaitable[dict[str, object]]]]:
+    """Register tools for access-key metadata."""
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def access_keys_search(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        statuses: Sequence[AccessKeyStatus] | None = None,
+        created_at: Sequence[float] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[AccessKeySortField, SortDirection]] | None = None,
+    ) -> dict[str, object]:
+        """Search the access keys issued for your Miggo tenant. Never returns
+        key material.
+
+        Data fields:
+        - id: access key ID
+        - name: display name
+        - status: this key's status (ACTIVE | INACTIVE | DELETED | SUSPENDED)
+        - tenantStatus: the owning tenant's status (ACTIVE | SUSPENDED |
+          SUSPENDED_NO_INGESTION | PENDING_DELETION | DELETED); selectable
+          but not filterable or sortable
+        - createdAt: created timestamp, epoch ms
+
+        Note: owner, last-used, and scope metadata are not tracked here.
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            status=statuses,
+            createdAt=created_at,
+        )
+
+        payload = await _fetch_collection_pages(
+            client,
+            "/v1/access-keys/",
+            filters=filters,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, ACCESS_KEY_DEFAULT_SORT),
+        )
+        return collection_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def access_keys_get(
+        access_key_id: Annotated[str, Field(min_length=1)],
+    ) -> dict[str, object]:
+        """Fetch a single access key by id.
+
+        Returns:
+        - data: access key object (see fields listed in access_keys_search)
+        """
+        params = compose_params(
+            filters={"id": [access_key_id]},
+            take=1,
+            sort=_resolve_sort(None, ACCESS_KEY_DEFAULT_SORT),
+        )
+        payload = await client.get("/v1/access-keys/", params=params)
+
+        access_keys = payload.get("data") or []
+        if not access_keys:
+            raise ValueError(f"No access key found for id {access_key_id!r}")
+
+        response = {"data": access_keys[0]}
+        meta = payload.get("meta")
+        if isinstance(meta, Mapping) and meta:
+            response["meta"] = meta
+        return response
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def access_keys_count(
+        *,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        statuses: Sequence[AccessKeyStatus] | None = None,
+        created_at: Sequence[float] | None = None,
+    ) -> dict[str, object]:
+        """Count access keys matching filters.
+
+        Returns:
+        - data: integer total count
+        """
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            status=statuses,
+            createdAt=created_at,
+        )
+        params = compose_params(filters=filters)
+        payload = await client.get("/v1/access-keys/count", params=params)
+        return scalar_response(payload)
+
+    @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
+    async def access_keys_facets(
+        *,
+        fields: Sequence[AccessKeyField] | None = None,
+        ids: Sequence[str] | None = None,
+        names: Sequence[str] | None = None,
+        statuses: Sequence[AccessKeyStatus] | None = None,
+        created_at: Sequence[float] | None = None,
+        skip: Skip = None,
+        take: Take = None,
+        sort: Sequence[tuple[AccessKeySortField, SortDirection]] | None = None,
+        search: Annotated[str | None, Field(min_length=1)] = None,
+    ) -> dict[str, object]:
+        """Get possible field values for access key objects.
+
+        Returns:
+        - data: object mapping fieldName -> list of string values
+        """
+        paging = _resolve_paging(skip, take, settings)
+        filters = _build_where_filters(
+            id=ids,
+            name=names,
+            status=statuses,
+            createdAt=created_at,
+        )
+
+        params = compose_params(
+            filters=filters,
+            fields=fields,
+            skip=paging.skip,
+            take=paging.take,
+            sort=_resolve_sort(sort, ACCESS_KEY_DEFAULT_SORT),
+            search=search,
+        )
+        payload = await client.get("/v1/access-keys/facets", params=params)
+        return collection_response(payload)
+
+    return {
+        "access_keys_search": access_keys_search,
+        "access_keys_get": access_keys_get,
+        "access_keys_count": access_keys_count,
+        "access_keys_facets": access_keys_facets,
+    }
+
+
 def _build_where_filters(**field_values: object) -> dict[str, list[object]]:
     """Translate keyword arguments into Miggo ``where`` filters."""
     filters: dict[str, list[object]] = {}
@@ -2072,16 +2830,22 @@ def _parse_default_sort(value: str | None) -> list[tuple[str, str]]:
 
 
 __all__ = [
+    "register_access_keys_tools",
     "register_all_tools",
     "register_cloud_resources_tools",
+    "register_connectors_tools",
     "register_data_sources_tools",
+    "register_dependencies_tools",
     "register_domains_tools",
     "register_downstream_tools",
     "register_endpoints_tools",
     "register_findings_tools",
-    "register_dependencies_tools",
+    "register_notification_channels_tools",
     "register_project_tools",
+    "register_sensor_nodes_tools",
+    "register_sensors_tools",
     "register_services_tools",
+    "register_ticketing_integrations_tools",
     "register_third_parties_tools",
     "register_vulnerabilities_tools",
 ]
