@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/miggo-io/miggo-mcp/compare/v0.9.0...v0.10.0) (2026-09-30)
+
+
+### Features
+
+* DAQ-185 MCP wrappers for the new Public API endpoints ([#43](https://github.com/miggo-io/miggo-mcp/issues/43)) ([ba7c118](https://github.com/miggo-io/miggo-mcp/commit/ba7c11857f96060e23c233e7dd405ca338dcba13))
+
 ## [0.9.0](https://github.com/miggo-io/miggo-mcp/compare/v0.8.2...v0.9.0) (2026-09-17)
 
 
