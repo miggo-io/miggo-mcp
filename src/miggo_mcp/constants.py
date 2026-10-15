@@ -200,6 +200,7 @@ FINDING_DEFAULT_SORT = [("severity", "desc")]
 VulnerabilityField = Literal[
     "id",
     "cvss",
+    "riskScore",
     "dependencyStatus",
     "imageName",
     "severity",
@@ -231,6 +232,7 @@ VulnerabilityStatus = Literal["OPEN", "IN_REVIEW", "RESOLVED", "DISMISSED", "PAT
 VULNERABILITY_FIELDS = [
     "id",
     "cvss",
+    "riskScore",
     "dependencyStatus",
     "imageName",
     "severity",
