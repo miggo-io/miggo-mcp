@@ -889,6 +889,7 @@ def register_vulnerabilities_tools(
         Data fields:
         - id: vulnerability record ID
         - cvss: CVSS score (nullable)
+        - riskScore: Miggo risk score (nullable); sort by it to prioritise
         - cwe: CWE identifier (nullable)
         - dependencyStatus: execution status (STATIC | LOADED | EXECUTED | FUNCTION EXECUTED | null)
         - imageName: image name (nullable)
