@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.0](https://github.com/miggo-io/miggo-mcp/compare/v0.9.0...v0.10.0) (2026-10-15)
+
+
+### Features
+
+* DAQ-185 MCP wrappers for the new Public API endpoints ([#43](https://github.com/miggo-io/miggo-mcp/issues/43)) ([ba7c118](https://github.com/miggo-io/miggo-mcp/commit/ba7c11857f96060e23c233e7dd405ca338dcba13))
+
+
+### Bug Fixes
+
+* MIG-14046 support sorting vulnerabilities by riskScore ([#45](https://github.com/miggo-io/miggo-mcp/issues/45)) ([778fcd6](https://github.com/miggo-io/miggo-mcp/commit/778fcd6230d31777a047b9533c8a7df2f7d8539c))
+
 ## [0.9.0](https://github.com/miggo-io/miggo-mcp/compare/v0.8.2...v0.9.0) (2026-09-17)
 
 
