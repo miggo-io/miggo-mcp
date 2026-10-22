@@ -523,6 +523,15 @@ async def test_findings_get_surfaces_not_found(settings):
 
 
 @pytest.mark.asyncio
+async def test_findings_get_fails_when_data_empty(settings):
+    responses = {"/v1/findings/single": {"status": 200, "data": None}}
+    tools, _ = make_toolset(settings, responses)
+
+    with pytest.raises(ValueError, match="No finding found for id"):
+        await tools["findings_get"]("unknown")
+
+
+@pytest.mark.asyncio
 async def test_vulnerabilities_search_keeps_evidence(settings):
     responses = {
         "/v1/vulnerabilities/": {

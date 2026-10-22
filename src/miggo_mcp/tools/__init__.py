@@ -753,7 +753,7 @@ def register_findings_tools(
         - status: optional HTTP status code from Miggo
         """
         payload = await client.get("/v1/findings/single", params={"id": finding_id})
-        return collection_response(payload)
+        return single_response(payload, resource_label="finding", record_id=finding_id)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def findings_count(
