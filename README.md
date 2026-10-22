@@ -165,6 +165,21 @@ Once installed, try these to see what Miggo + your AI assistant can do:
 
 ---
 
+## Inventory evidence
+
+`services_get`, `endpoints_get`, `third_parties_get`, `data_sources_get`,
+`domains_get`, and `cloud_resources_get` use the public API's
+`/v1/<resource>/single?id=…` routes. They return one object in `data`, including
+full `evidence` and `evidenceAvailability`, and preserve API metadata and status.
+An unknown or hidden ID produces an API error (404).
+
+The corresponding search tools return `evidenceAvailability`: a sparse map whose
+possible keys are `api_auth_status`, `internet_facing`, and `is_ai_related`.
+Present values are always `true`; `{}` means no indicator evidence is available.
+Use this map to choose which records to inspect with the get tools. Search tools
+continue to pass through `evidence` when returned by the API, but that field is
+deprecated in upstream paginated responses; use the get tools for full evidence.
+
 ## Development
 
 ### Running locally

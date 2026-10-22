@@ -192,6 +192,10 @@ def register_services_tools(
         - sources: source systems
         - domains: associated domains
         - risk: risk score or label (string | number | null)
+        - evidence: inventory evidence keyed by tag (deprecated in lists)
+        - evidenceAvailability: sparse map of api_auth_status, internet_facing,
+          is_ai_related to true when evidence exists; empty {} when none exists.
+          Use services_get to retrieve full evidence for one record.
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -222,28 +226,16 @@ def register_services_tools(
     ) -> dict[str, object]:
         """Fetch a single service by id.
 
+        Includes full evidence and evidenceAvailability. Unknown or hidden IDs
+        raise an API error (404).
+
         Returns:
-        - data: Service object (see fields listed in services_list)
+        - data: Service object (see fields listed in services_search)
         - meta: optional metadata if present in API response
         - status: optional HTTP status code from Miggo
         """
-        params = compose_params(
-            filters={"id": [service_id]},
-            take=1,
-            sort=_resolve_sort(None, default_sort),
-        )
-
-        payload = await client.get("/v1/services/", params=params)
-
-        services = payload.get("data") or []
-        if not services:
-            raise ValueError(f"No service found for id {service_id!r}")
-
-        response = {"data": services[0]}
-        meta = payload.get("meta")
-        if isinstance(meta, Mapping) and meta:
-            response["meta"] = meta
-        return response
+        payload = await client.get("/v1/services/single", params={"id": service_id})
+        return collection_response(payload)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def services_count(
@@ -377,6 +369,10 @@ def register_endpoints_tools(
         - isAuthenticated: requires auth flag
         - isThirdPartyCommunication: connects to third parties
         - isAiRelated: observed being used by an AI workload (nullable)
+        - evidence: inventory evidence keyed by tag (deprecated in lists)
+        - evidenceAvailability: sparse map of api_auth_status, internet_facing,
+          is_ai_related to true when evidence exists; empty {} when none exists.
+          Use endpoints_get to retrieve full evidence for one record.
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -409,25 +405,14 @@ def register_endpoints_tools(
     ) -> dict[str, object]:
         """Fetch a single endpoint by id.
 
+        Includes full evidence and evidenceAvailability. Unknown or hidden IDs
+        raise an API error (404).
+
         Returns:
-        - data: Endpoint object (see fields listed in endpoints_list)
+        - data: Endpoint object (see fields listed in endpoints_search)
         """
-        params = compose_params(
-            filters={"id": [endpoint_id]},
-            take=1,
-            sort=_resolve_sort(None, ENDPOINT_DEFAULT_SORT),
-        )
-        payload = await client.get("/v1/endpoints/", params=params)
-
-        endpoints = payload.get("data") or []
-        if not endpoints:
-            raise ValueError(f"No endpoint found for id {endpoint_id!r}")
-
-        response = {"data": endpoints[0]}
-        meta = payload.get("meta")
-        if isinstance(meta, Mapping) and meta:
-            response["meta"] = meta
-        return response
+        payload = await client.get("/v1/endpoints/single", params={"id": endpoint_id})
+        return collection_response(payload)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def endpoints_count(
@@ -551,6 +536,10 @@ def register_third_parties_tools(
         - domain: third-party domain
         - service: which service calls this third party
         - isAiRelated: observed being used by an AI workload (nullable)
+        - evidence: inventory evidence keyed by tag (deprecated in lists)
+        - evidenceAvailability: sparse map of api_auth_status, internet_facing,
+          is_ai_related to true when evidence exists; empty {} when none exists.
+          Use third_parties_get to retrieve full evidence for one record.
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -577,25 +566,16 @@ def register_third_parties_tools(
     ) -> dict[str, object]:
         """Fetch a single third-party by id.
 
+        Includes full evidence and evidenceAvailability. Unknown or hidden IDs
+        raise an API error (404).
+
         Returns:
-        - data: ThirdParty object (see fields listed in third_parties_list)
+        - data: ThirdParty object (see fields listed in third_parties_search)
         """
-        params = compose_params(
-            filters={"id": [third_party_id]},
-            take=1,
-            sort=_resolve_sort(None, THIRD_PARTY_DEFAULT_SORT),
+        payload = await client.get(
+            "/v1/third-parties/single", params={"id": third_party_id}
         )
-        payload = await client.get("/v1/third-parties/", params=params)
-
-        third_parties = payload.get("data") or []
-        if not third_parties:
-            raise ValueError(f"No third-party found for id {third_party_id!r}")
-
-        response = {"data": third_parties[0]}
-        meta = payload.get("meta")
-        if isinstance(meta, Mapping) and meta:
-            response["meta"] = meta
-        return response
+        return collection_response(payload)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def third_parties_count(
@@ -1395,7 +1375,10 @@ def register_data_sources_tools(
         - isSensitive: any sensitive data observed (nullable)
         - isAiRelated: observed being used by an AI workload (nullable)
         - firstSeen / createdAt / updatedAt: timestamps
-        - evidence: inventory evidence keyed by tag (http requests, traces)
+        - evidence: inventory evidence keyed by tag (http requests, traces; deprecated in lists)
+        - evidenceAvailability: sparse map of api_auth_status, internet_facing,
+          is_ai_related to true when evidence exists; empty {} when none exists.
+          Use data_sources_get to retrieve full evidence for one record.
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -1424,25 +1407,16 @@ def register_data_sources_tools(
     ) -> dict[str, object]:
         """Fetch a single data source by id.
 
+        Includes full evidence and evidenceAvailability. Unknown or hidden IDs
+        raise an API error (404).
+
         Returns:
         - data: DataSource object (see fields listed in data_sources_search)
         """
-        params = compose_params(
-            filters={"id": [data_source_id]},
-            take=1,
-            sort=_resolve_sort(None, DATA_SOURCE_DEFAULT_SORT),
+        payload = await client.get(
+            "/v1/data-sources/single", params={"id": data_source_id}
         )
-        payload = await client.get("/v1/data-sources/", params=params)
-
-        data_sources = payload.get("data") or []
-        if not data_sources:
-            raise ValueError(f"No data source found for id {data_source_id!r}")
-
-        response = {"data": data_sources[0]}
-        meta = payload.get("meta")
-        if isinstance(meta, Mapping) and meta:
-            response["meta"] = meta
-        return response
+        return collection_response(payload)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def data_sources_count(
@@ -1610,7 +1584,10 @@ def register_domains_tools(
         - dnsRecords: observed DNS records (name/type/content/origin). Returned
           but not filterable or sortable.
         - createdAt / updatedAt: timestamps
-        - evidence: inventory evidence keyed by tag
+        - evidence: inventory evidence keyed by tag (deprecated in lists)
+        - evidenceAvailability: sparse map of api_auth_status, internet_facing,
+          is_ai_related to true when evidence exists; empty {} when none exists.
+          Use domains_get to retrieve full evidence for one record.
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -1640,25 +1617,14 @@ def register_domains_tools(
     ) -> dict[str, object]:
         """Fetch a single domain by id.
 
+        Includes full evidence and evidenceAvailability. Unknown or hidden IDs
+        raise an API error (404).
+
         Returns:
         - data: Domain object (see fields listed in domains_search)
         """
-        params = compose_params(
-            filters={"id": [domain_id]},
-            take=1,
-            sort=_resolve_sort(None, DOMAIN_DEFAULT_SORT),
-        )
-        payload = await client.get("/v1/domains/", params=params)
-
-        domains = payload.get("data") or []
-        if not domains:
-            raise ValueError(f"No domain found for id {domain_id!r}")
-
-        response = {"data": domains[0]}
-        meta = payload.get("meta")
-        if isinstance(meta, Mapping) and meta:
-            response["meta"] = meta
-        return response
+        payload = await client.get("/v1/domains/single", params={"id": domain_id})
+        return collection_response(payload)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def domains_count(
@@ -1786,7 +1752,10 @@ def register_cloud_resources_tools(
         - isAiRelated: observed being used by an AI workload (nullable)
         - lastSeen: last time an endpoint was seen talking to it (nullable)
         - createdAt / updatedAt: timestamps
-        - evidence: inventory evidence keyed by tag
+        - evidence: inventory evidence keyed by tag (deprecated in lists)
+        - evidenceAvailability: sparse map of api_auth_status, internet_facing,
+          is_ai_related to true when evidence exists; empty {} when none exists.
+          Use cloud_resources_get to retrieve full evidence for one record.
         """
         paging = _resolve_paging(skip, take, settings)
         filters = _build_where_filters(
@@ -1815,25 +1784,16 @@ def register_cloud_resources_tools(
     ) -> dict[str, object]:
         """Fetch a single cloud resource by id.
 
+        Includes full evidence and evidenceAvailability. Unknown or hidden IDs
+        raise an API error (404).
+
         Returns:
         - data: CloudResource object (see fields listed in cloud_resources_search)
         """
-        params = compose_params(
-            filters={"id": [cloud_resource_id]},
-            take=1,
-            sort=_resolve_sort(None, CLOUD_RESOURCE_DEFAULT_SORT),
+        payload = await client.get(
+            "/v1/cloud-resources/single", params={"id": cloud_resource_id}
         )
-        payload = await client.get("/v1/cloud-resources/", params=params)
-
-        cloud_resources = payload.get("data") or []
-        if not cloud_resources:
-            raise ValueError(f"No cloud resource found for id {cloud_resource_id!r}")
-
-        response = {"data": cloud_resources[0]}
-        meta = payload.get("meta")
-        if isinstance(meta, Mapping) and meta:
-            response["meta"] = meta
-        return response
+        return collection_response(payload)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def cloud_resources_count(

@@ -89,15 +89,6 @@ async def test_services_list_happy(settings):
 
 
 @pytest.mark.asyncio
-async def test_services_get_fails_when_missing(settings):
-    responses = {"/v1/services/": {"status": 200, "data": []}}
-    tools, _ = make_toolset(settings, responses)
-
-    with pytest.raises(ValueError, match="No service found"):
-        await tools["services_get"]("unknown")
-
-
-@pytest.mark.asyncio
 async def test_services_count(settings):
     responses = {"/v1/services/count": {"data": 7}}
     tools, dummy = make_toolset(settings, responses)
@@ -346,24 +337,6 @@ async def test_endpoints_filters_encoding(settings):
 
 
 @pytest.mark.asyncio
-async def test_third_parties_get_returns_result(settings):
-    responses = {
-        "/v1/third-parties/": {
-            "status": 200,
-            "data": [{"id": "tp-1", "domain": "example.com"}],
-        }
-    }
-    tools, dummy = make_toolset(settings, responses)
-
-    result = await tools["third_parties_get"]("tp-1")
-
-    assert result["data"]["domain"] == "example.com"
-    _, params = dummy.calls[0]
-    assert params["where.id"] == "tp-1"
-    assert params["take"] == "1"
-
-
-@pytest.mark.asyncio
 async def test_services_search_ai_related_filter(settings):
     responses = {"/v1/services/": {"status": 200, "data": [{"id": "svc-1"}]}}
     tools, dummy = make_toolset(settings, responses)
@@ -537,8 +510,6 @@ async def test_findings_get_uses_hydrated_evidence_endpoint(settings):
 
 @pytest.mark.asyncio
 async def test_findings_get_surfaces_not_found(settings):
-    # Unlike the list-backed `_get` tools, /v1/findings/single 404s on an
-    # unknown id rather than returning an empty collection.
     responses = {
         "/v1/findings/single": {
             "status": 404,
@@ -603,15 +574,6 @@ async def test_data_sources_search(settings):
 
 
 @pytest.mark.asyncio
-async def test_data_sources_get_fails_when_missing(settings):
-    responses = {"/v1/data-sources/": {"status": 200, "data": []}}
-    tools, _ = make_toolset(settings, responses)
-
-    with pytest.raises(ValueError, match="No data source found"):
-        await tools["data_sources_get"]("unknown")
-
-
-@pytest.mark.asyncio
 async def test_data_sources_count(settings):
     responses = {"/v1/data-sources/count": {"data": 4}}
     tools, dummy = make_toolset(settings, responses)
@@ -666,33 +628,6 @@ async def test_domains_search(settings):
     assert params["where.edgeProtection"] == "Not Protected"
     assert params["where.isInternetFacing"] == "true"
     assert params["sort"] == "createdAt,desc"
-
-
-@pytest.mark.asyncio
-async def test_domains_get_returns_result(settings):
-    responses = {
-        "/v1/domains/": {
-            "status": 200,
-            "data": [{"id": "dom-1", "name": "api.example.com", "root": "example.com"}],
-        }
-    }
-    tools, dummy = make_toolset(settings, responses)
-
-    result = await tools["domains_get"]("dom-1")
-
-    assert result["data"]["name"] == "api.example.com"
-    _, params = dummy.calls[0]
-    assert params["where.id"] == "dom-1"
-    assert params["take"] == "1"
-
-
-@pytest.mark.asyncio
-async def test_domains_get_fails_when_missing(settings):
-    responses = {"/v1/domains/": {"status": 200, "data": []}}
-    tools, _ = make_toolset(settings, responses)
-
-    with pytest.raises(ValueError, match="No domain found"):
-        await tools["domains_get"]("unknown")
 
 
 @pytest.mark.asyncio
@@ -752,33 +687,6 @@ async def test_cloud_resources_search(settings):
     assert params["where.resourceType"] == "Storage"
     assert params["where.isAiRelated"] == "false"
     assert params["sort"] == "lastSeen,desc"
-
-
-@pytest.mark.asyncio
-async def test_cloud_resources_get_returns_result(settings):
-    responses = {
-        "/v1/cloud-resources/": {
-            "status": 200,
-            "data": [{"id": "cr-1", "name": "orders-bucket", "cloudService": "s3"}],
-        }
-    }
-    tools, dummy = make_toolset(settings, responses)
-
-    result = await tools["cloud_resources_get"]("cr-1")
-
-    assert result["data"]["name"] == "orders-bucket"
-    _, params = dummy.calls[0]
-    assert params["where.id"] == "cr-1"
-    assert params["take"] == "1"
-
-
-@pytest.mark.asyncio
-async def test_cloud_resources_get_fails_when_missing(settings):
-    responses = {"/v1/cloud-resources/": {"status": 200, "data": []}}
-    tools, _ = make_toolset(settings, responses)
-
-    with pytest.raises(ValueError, match="No cloud resource found"):
-        await tools["cloud_resources_get"]("unknown")
 
 
 @pytest.mark.asyncio
@@ -1198,3 +1106,76 @@ async def test_services_list_number_parameters(settings):
     assert path == "/v1/services/"
     assert params["take"] == "3"
     assert params["skip"] == "1"
+
+
+INVENTORY_RESOURCES = (
+    "services",
+    "endpoints",
+    "third_parties",
+    "data_sources",
+    "domains",
+    "cloud_resources",
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("resource", INVENTORY_RESOURCES)
+@pytest.mark.parametrize("missing", [False, True])
+async def test_inventory_get_single_http_contract(
+    settings, httpx_mock, resource, missing
+):
+    from miggo_mcp.client import MiggoPublicClient
+
+    record_id = "c5911599-d9d7-4efa-a3e8-1fbd8454af39"
+    path = f"/v1/{resource.replace('_', '-')}/single"
+    payload = {
+        "status": 200,
+        "data": {
+            "id": record_id,
+            "evidence": {"internet_facing": [{"type": "http", "request": {}}]},
+            "evidenceAvailability": {"internet_facing": True},
+        },
+        "meta": {"requestId": "test-request"},
+    }
+    httpx_mock.add_response(
+        method="POST",
+        url=str(settings.access_key_exchange_url),
+        json={"sessionJwt": "test-session"},
+    )
+    httpx_mock.add_response(
+        method="GET",
+        url=f"https://api-beta.miggo.io{path}?id={record_id}",
+        status_code=404 if missing else 200,
+        json={"message": "RESOURCE_NOT_FOUND"} if missing else payload,
+    )
+    server = SimpleNamespace(tool=lambda **kwargs: (lambda func: func))
+    async with MiggoPublicClient(settings) as client:
+        tools = register_all_tools(server, settings, client)
+        if missing:
+            with pytest.raises(MiggoApiError, match="404: RESOURCE_NOT_FOUND"):
+                await tools[f"{resource}_get"](record_id)
+        else:
+            assert await tools[f"{resource}_get"](record_id) == payload
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("resource", INVENTORY_RESOURCES)
+@pytest.mark.parametrize(
+    "availability",
+    [{}, {"api_auth_status": True, "internet_facing": True, "is_ai_related": True}],
+)
+async def test_inventory_search_preserves_evidence_availability(
+    settings, resource, availability
+):
+    record = {
+        "id": "inventory-1",
+        "evidence": {tag: [{"type": "http"}] for tag in availability},
+        "evidenceAvailability": availability,
+    }
+    path = f"/v1/{resource.replace('_', '-')}/"
+    tools, dummy = make_toolset(settings, {path: {"status": 200, "data": [record]}})
+
+    result = await tools[f"{resource}_search"](take=1)
+
+    assert result["data"] == [record]
+    assert dummy.calls[0][0] == path
