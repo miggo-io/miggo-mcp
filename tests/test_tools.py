@@ -1118,11 +1118,23 @@ INVENTORY_RESOURCES = (
 )
 
 
+INVENTORY_SINGULAR_LABELS = {
+    "services": "service",
+    "endpoints": "endpoint",
+    "third_parties": "third-party",
+    "data_sources": "data source",
+    "domains": "domain",
+    "cloud_resources": "cloud resource",
+}
+
+NOT_FOUND_MESSAGE = "The requested resource was not found"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("resource", INVENTORY_RESOURCES)
-@pytest.mark.parametrize("missing", [False, True])
+@pytest.mark.parametrize("outcome", ["found", "not_found", "empty_data"])
 async def test_inventory_get_single_http_contract(
-    settings, httpx_mock, resource, missing
+    settings, httpx_mock, resource, outcome
 ):
     from miggo_mcp.client import MiggoPublicClient
 
@@ -1137,6 +1149,18 @@ async def test_inventory_get_single_http_contract(
         },
         "meta": {"requestId": "test-request"},
     }
+    # The API answers a missing or hidden id with this envelope.
+    not_found_body = {
+        "code": "RESOURCE_NOT_FOUND",
+        "message": NOT_FOUND_MESSAGE,
+    }
+    bodies = {
+        "found": (200, payload),
+        "not_found": (404, not_found_body),
+        "empty_data": (200, {"status": 200, "data": None, "meta": {}}),
+    }
+    status_code, body = bodies[outcome]
+
     httpx_mock.add_response(
         method="POST",
         url=str(settings.access_key_exchange_url),
@@ -1144,15 +1168,20 @@ async def test_inventory_get_single_http_contract(
     )
     httpx_mock.add_response(
         method="GET",
-        url=f"https://api-beta.miggo.io{path}?id={record_id}",
-        status_code=404 if missing else 200,
-        json={"message": "RESOURCE_NOT_FOUND"} if missing else payload,
+        url=f"{settings.api_url}{path}?id={record_id}",
+        status_code=status_code,
+        json=body,
     )
     server = SimpleNamespace(tool=lambda **kwargs: (lambda func: func))
     async with MiggoPublicClient(settings) as client:
         tools = register_all_tools(server, settings, client)
-        if missing:
-            with pytest.raises(MiggoApiError, match="404: RESOURCE_NOT_FOUND"):
+        if outcome == "not_found":
+            # The client surfaces the readable message, not the code.
+            with pytest.raises(MiggoApiError, match=f"404: {NOT_FOUND_MESSAGE}"):
+                await tools[f"{resource}_get"](record_id)
+        elif outcome == "empty_data":
+            label = INVENTORY_SINGULAR_LABELS[resource]
+            with pytest.raises(ValueError, match=f"No {label} found for id"):
                 await tools[f"{resource}_get"](record_id)
         else:
             assert await tools[f"{resource}_get"](record_id) == payload

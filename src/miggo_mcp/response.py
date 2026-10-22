@@ -27,9 +27,27 @@ def collection_response(payload: Mapping[str, Any]) -> dict[str, Any]:
     return response
 
 
+def single_response(
+    payload: Mapping[str, Any], *, resource_label: str, record_id: str
+) -> dict[str, Any]:
+    """Shape a single-record response, rejecting an empty ``data`` field.
+
+    A 200 with ``data`` null or missing means the record was not returned, so
+    raise instead of handing back ``{"data": None}``.
+    """
+    if not payload.get("data"):
+        raise ValueError(f"No {resource_label} found for id {record_id!r}")
+    return collection_response(payload)
+
+
 def scalar_response(payload: Mapping[str, Any], key: str = "data") -> dict[str, Any]:
     """Return a normalized scalar payload (e.g., counts)."""
     return {key: payload.get(key)}
 
 
-__all__ = ["collection_response", "scalar_response", "unwrap_envelope"]
+__all__ = [
+    "collection_response",
+    "scalar_response",
+    "single_response",
+    "unwrap_envelope",
+]

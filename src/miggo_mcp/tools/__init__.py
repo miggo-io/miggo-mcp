@@ -67,7 +67,7 @@ from ..constants import (
     VulnerabilityStatus,
 )
 from ..query import compose_params
-from ..response import collection_response, scalar_response
+from ..response import collection_response, scalar_response, single_response
 
 ToolCallable = Callable[..., Awaitable[dict[str, object]]]
 
@@ -227,7 +227,7 @@ def register_services_tools(
         """Fetch a single service by id.
 
         Includes full evidence and evidenceAvailability. Unknown or hidden IDs
-        raise an API error (404).
+        raise an error (the API answers 404).
 
         Returns:
         - data: Service object (see fields listed in services_search)
@@ -235,7 +235,7 @@ def register_services_tools(
         - status: optional HTTP status code from Miggo
         """
         payload = await client.get("/v1/services/single", params={"id": service_id})
-        return collection_response(payload)
+        return single_response(payload, resource_label="service", record_id=service_id)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def services_count(
@@ -406,13 +406,15 @@ def register_endpoints_tools(
         """Fetch a single endpoint by id.
 
         Includes full evidence and evidenceAvailability. Unknown or hidden IDs
-        raise an API error (404).
+        raise an error (the API answers 404).
 
         Returns:
         - data: Endpoint object (see fields listed in endpoints_search)
         """
         payload = await client.get("/v1/endpoints/single", params={"id": endpoint_id})
-        return collection_response(payload)
+        return single_response(
+            payload, resource_label="endpoint", record_id=endpoint_id
+        )
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def endpoints_count(
@@ -567,7 +569,7 @@ def register_third_parties_tools(
         """Fetch a single third-party by id.
 
         Includes full evidence and evidenceAvailability. Unknown or hidden IDs
-        raise an API error (404).
+        raise an error (the API answers 404).
 
         Returns:
         - data: ThirdParty object (see fields listed in third_parties_search)
@@ -575,7 +577,9 @@ def register_third_parties_tools(
         payload = await client.get(
             "/v1/third-parties/single", params={"id": third_party_id}
         )
-        return collection_response(payload)
+        return single_response(
+            payload, resource_label="third-party", record_id=third_party_id
+        )
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def third_parties_count(
@@ -1408,7 +1412,7 @@ def register_data_sources_tools(
         """Fetch a single data source by id.
 
         Includes full evidence and evidenceAvailability. Unknown or hidden IDs
-        raise an API error (404).
+        raise an error (the API answers 404).
 
         Returns:
         - data: DataSource object (see fields listed in data_sources_search)
@@ -1416,7 +1420,9 @@ def register_data_sources_tools(
         payload = await client.get(
             "/v1/data-sources/single", params={"id": data_source_id}
         )
-        return collection_response(payload)
+        return single_response(
+            payload, resource_label="data source", record_id=data_source_id
+        )
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def data_sources_count(
@@ -1618,13 +1624,13 @@ def register_domains_tools(
         """Fetch a single domain by id.
 
         Includes full evidence and evidenceAvailability. Unknown or hidden IDs
-        raise an API error (404).
+        raise an error (the API answers 404).
 
         Returns:
         - data: Domain object (see fields listed in domains_search)
         """
         payload = await client.get("/v1/domains/single", params={"id": domain_id})
-        return collection_response(payload)
+        return single_response(payload, resource_label="domain", record_id=domain_id)
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def domains_count(
@@ -1785,7 +1791,7 @@ def register_cloud_resources_tools(
         """Fetch a single cloud resource by id.
 
         Includes full evidence and evidenceAvailability. Unknown or hidden IDs
-        raise an API error (404).
+        raise an error (the API answers 404).
 
         Returns:
         - data: CloudResource object (see fields listed in cloud_resources_search)
@@ -1793,7 +1799,9 @@ def register_cloud_resources_tools(
         payload = await client.get(
             "/v1/cloud-resources/single", params={"id": cloud_resource_id}
         )
-        return collection_response(payload)
+        return single_response(
+            payload, resource_label="cloud resource", record_id=cloud_resource_id
+        )
 
     @server.tool(annotations=_READ_ONLY_ANNOTATIONS)
     async def cloud_resources_count(

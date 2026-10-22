@@ -171,7 +171,7 @@ Once installed, try these to see what Miggo + your AI assistant can do:
 `domains_get`, and `cloud_resources_get` use the public API's
 `/v1/<resource>/single?id=…` routes. They return one object in `data`, including
 full `evidence` and `evidenceAvailability`, and preserve API metadata and status.
-An unknown or hidden ID produces an API error (404).
+An unknown or hidden ID produces an error; the API answers these reads with 404.
 
 The corresponding search tools return `evidenceAvailability`: a sparse map whose
 possible keys are `api_auth_status`, `internet_facing`, and `is_ai_related`.
