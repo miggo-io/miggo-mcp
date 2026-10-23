@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/miggo-io/miggo-mcp/compare/v0.10.0...v0.10.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* MIG-14097 expose inventory single routes in MCP ([#46](https://github.com/miggo-io/miggo-mcp/issues/46)) ([3638d4f](https://github.com/miggo-io/miggo-mcp/commit/3638d4f8c4c501ddfaa418f319ce84b00b90cd39))
+
 ## [0.10.0](https://github.com/miggo-io/miggo-mcp/compare/v0.9.0...v0.10.0) (2026-10-15)
 
 
